@@ -218,6 +218,10 @@ class SongEditor (Frame):
       self.songrows = []
       self.newSongButton = Button(self,text="Add Song",command=self.addSong)
       self.registered = []
+      # master reference to access checkbox
+      self.master = master
+      # used to check if button has been randomised
+      self.buttonRandomised = False
       # load clists into songrows as needed
       self.load(clists)
       # necessary callbacks: update previewer and update own information, whenever stuff changes
@@ -233,6 +237,32 @@ class SongEditor (Frame):
          child.grid_forget()
       # reconstruct
       self.songrows = []
+      # if there are no horns, set the value to false
+      if len(clists) == 0:
+            self.buttonRandomised = False
+      # checks if the selected player already has its horns randomised
+      for index in range(len(clists)):
+         self.checkOkay = False
+         # loops through the list of conditions and instructions, breaks once a randomise instruction is found
+         for instruction in clists[index]:
+            if (RandomiseInstruction == type(instruction)):
+               self.checkOkay = True
+               break
+         # if no randomise instruction is found, set the value to false and break the loop
+         # otherwise, check condition list of the next horn
+         if (not self.checkOkay):
+            self.buttonRandomised = False
+            break
+         else:
+            self.buttonRandomised = True
+      # if button is randomised, check the randomise button checkbox and set the variable assigned to it to 1
+      if self.buttonRandomised:
+         self.master.randomVar.set(1)
+         self.master.randomiseButton.select()
+      # otherwise, uncheck it and set the variable to 0
+      else:
+         self.master.randomVar.set(0)
+         self.master.randomiseButton.deselect()
       # turn clists into song rows
       for index in range(len(clists)):
          self.songrows.append(SongRow(self,index+1,clists[index]))
@@ -341,6 +371,10 @@ class PlayerSelectFrame (Frame):
       self.renameButton.pack(fill=X,pady=2)
       self.deleteButton = Button(buttonFrame, text="Delete Selected", command=self.deletePlayer)
       self.deleteButton.pack(fill=X,pady=2)
+      # randomise horns checkbox
+      self.randomVar = IntVar()
+      self.randomiseButton = Checkbutton(buttonFrame, text="Randomise Horns", variable=self.randomVar, command=self.randomiseHorns)
+      self.randomiseButton.pack(fill=X,pady=2)
       buttonFrame.grid(row=0,column=0,padx=5,pady=5)
       # create song editor
       self.songEditor = SongEditor(self)
@@ -461,6 +495,25 @@ class PlayerSelectFrame (Frame):
       self.songs[name] = temp
       self.current = None
       self.loadSongEditor(pname=name)
+
+   def randomiseHorns (self):
+      """
+         When checked on, sets all horns of currently selected player to have only the "randomise" condition (as well as remove the 'Add Condition' button),
+         which has Rigdio randomly select a horn from the list instead of following priority.
+         When checked off, resets all horns to have no condition.
+      """
+      if self.randomVar.get() == 1:
+         for row in self.songEditor.songrows:
+            row.append(RandomiseInstruction(None))
+      else:
+         for row in self.songEditor.songrows:
+            x = 0
+            while x < len(row.clist):
+               if str(row.clist[x]) == "randomise":
+                  row.pop(x)
+                  continue
+               else:
+                  x += 1
 
    def get (self):
       """

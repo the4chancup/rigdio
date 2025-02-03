@@ -1,4 +1,5 @@
 from condition import *
+import random
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
@@ -10,6 +11,7 @@ class ConditionList:
       self.instructions = []
       self.disabled = False
       self.startTime = 0
+      self.playbackSpeed = 1.00
       self.event = None
       self.endType = "loop"
       self.pauseType = "continue"
@@ -126,7 +128,9 @@ class ConditionPlayer (ConditionList):
       self.fade = None
       self.endChecker = None
       self.startTime = 0
+      self.playbackSpeed = 1.00
       self.firstPlay = True
+      self.randomise = False
       self.pauseType = "continue"
       self.instructionsStart = []
       self.instructionsPause = []
@@ -146,6 +150,7 @@ class ConditionPlayer (ConditionList):
          instruction.prep(self)
 
    def reloadSong (self):
+      self.firstPlay = True
       self.song = loadsong(self.songname)
       self.instruct()
 
@@ -176,7 +181,6 @@ class ConditionPlayer (ConditionList):
          self.fade = threading.Thread(target=self.fadeOut)
          self.fade.start()
       else:
-         print("Pausing {}.".format(self.songname))
          for instruction in self.instructionsPause:
             instruction.run(self)
          self.song.pause()
@@ -249,6 +253,17 @@ class PlayerManager:
             del self.clists[i]
             # do not increment i, self.clists[i] is now the next song; continue
             continue
+         # if randomise is true, check if all other songs have randomise true as well
+         if self.clists[i].randomise:
+            f, randomSong = 0, True
+            while f < len(self.clists):
+               # if one of them is false,
+               if not self.clists[f].randomise and self.clists[i].pname == self.clists[f].pname:
+                  randomSong = False
+                  break
+               f += 1
+            if randomSong:
+               return random.choice(self.clists)
          # if conditions were met
          if checked:
             return self.clists[i]
@@ -270,10 +285,13 @@ class PlayerManager:
          raise SongNotFound(self.pname)
       # log song
       print("Playing",self.song.songname)
+      # a returnable value for whether this is the first time this song is played
+      self.firstTime = self.song.firstPlay
       # play the song
       self.song.play()
       # remove any data specific to this goal
       self.game.clearButtonFlags()
+      return self.firstTime
 
    def pauseSong (self):
       if self.song is not None:

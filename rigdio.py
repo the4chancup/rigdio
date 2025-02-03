@@ -64,37 +64,13 @@ class Rigdio (Frame):
       self.scoreWidget.grid(row=0, column=1)
       # game type selector
       self.initGameTypeMenu().grid(row=1,column=1)
-      # creates chants window and manager
-      self.chantswindow = None
-      self.chantsManager = cWin.ChantsManager(self.chantswindow)
-      # manual chant controls
-      manualChants = Frame(self)
-      Label(manualChants, text=None).grid(row=0,columnspan=2)
-      Button(manualChants, text="Manual Chants", command=self.chant_window).grid(row=1,columnspan=2)
-      manualChants.grid(row=2, column=1)
+      # other stuff for the middle column, like playback speed slider and chants
+      self.middleStuff = Frame(self)
+      self.initMiddleStuff().grid(row=2,column=1)
       # events
       self.events = EventController()
       # undo (temporary)
       Button(self, text="Undo Last Goal", command=self.game.undoLast).grid(row=3, column=1)
-   
-   # open and close the chants window
-   def chant_window(self):
-      # this prevents multiple clicks opening multiple windows
-      if self.chantswindow is not None:
-         print("Manual chant window already open, attempting to take focus.")
-         self.chantswindow.focus_force()
-         return
-      self.chantswindow = cWin.chantswindow(self, self.chantsManager)
-      self.chantsManager.window = self.chantswindow
-
-   def close(self):
-      if self.chantswindow is not None:
-         # ends the ongoing chant thread early
-         self.chantswindow.chantsFrame.endThread()
-         # destroys the chants window and resets the value to None
-         self.chantswindow.destroy()
-         self.chantswindow = None
-         self.chantsManager.window = None
 
    def initGameTypeMenu (self):
       gameTypeMenu = Frame(self)
@@ -110,6 +86,69 @@ class Rigdio (Frame):
 
    def changeGameType (self, option):
       self.game.gametype = option.lower()
+
+   def initMiddleStuff (self):
+      # universal playback speed slider
+      Label(self.middleStuff, text="Playback Speed").grid(columnspan=2)
+      self.playbackSpeedMenu = Scale(self.middleStuff, from_=0.25, to=4.00, orient=HORIZONTAL, command=NONE, resolution=0.25, showvalue=1, digits=3)
+      self.playbackSpeedMenu.set(1.00)
+      self.playbackSpeedMenu.grid(columnspan=2)
+      # creates chants window and manager
+      self.chantswindow = None
+      self.chantsManager = cWin.ChantsManager(self.chantswindow, self)
+      # manual chant controls
+      Label(self.middleStuff, text=None).grid(columnspan=2)
+      Button(self.middleStuff, text="Manual Chants", command=self.chant_window).grid(columnspan=2)
+      # blank space
+      Label(self.middleStuff, text=None).grid(columnspan=2)
+      # stop chant early button
+      self.stopEarlyButton = Button(self.middleStuff, text="Stop Chant Early", command=self.chantsManager.endThread, bg="#f9fce0")
+      self.stopEarlyButton.grid(columnspan=2)
+      # random chant buttons accessible from the main window
+      self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, None, "Random", True, True)
+      self.randomHome.playButton.grid(row=6, column=0)
+      self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, None, "Random", False, True)
+      self.randomAway.playButton.grid(row=6, column=1)
+      return self.middleStuff
+
+   # used to disable the use of the playback speed slider when a song is playing, to make it obvious what the current playback speed is
+   def disablePlaybackSpeedSlider (self, disable):
+      if self.playbackSpeedMenu is not None:
+         self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
+         self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
+
+   def replaceChantButton (self, chantsList):
+      self.randomHome.playButton.destroy()
+      self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", True, True)
+      self.randomHome.playButton.grid(row=6, column=0)
+
+      self.randomAway.playButton.destroy()
+      self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", False, True)
+      self.randomAway.playButton.grid(row=6, column=1)
+
+   # open and close the chants window
+   def chant_window (self):
+      # this prevents multiple clicks opening multiple windows
+      if self.chantswindow is not None:
+         print("Manual chant window already open, attempting to take focus.")
+         self.chantswindow.focus_force()
+         return
+      self.chantswindow = cWin.chantswindow(self, self.chantsManager)
+      self.chantsManager.window = self.chantswindow
+
+   def close (self):
+      if self.chantswindow is not None:
+         # ends the ongoing chant thread early and resets setting values back to default
+         self.chantsManager.endThread()
+         self.chantsManager.resetValues()
+         # destroys the chants window and resets the value to None
+         self.chantswindow.destroy()
+         self.chantswindow = None
+         self.chantsManager.window = None
+
+   def mainClose (self, master):
+      self.chantsManager.endThread()
+      master.destroy()
 
    def legacyLoad (self, f, home):
       print("Loading music instructions from {}.".format(f))
@@ -209,6 +248,7 @@ def main ():
 
    rigdio = Rigdio(master)
    rigdio.pack()
+   master.protocol('WM_DELETE_WINDOW', lambda: rigdio.mainClose(master))
    try:
       mainloop()
    except KeyboardInterrupt:

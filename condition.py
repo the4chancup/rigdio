@@ -461,10 +461,11 @@ class Instruction:
       raise NotImplementedError("Instruction subclass must override run().")
 
    def __str__ (self):
-      return "{} {}".format(self.type()," ".join(self.tokens()))
+      return "{} {}".format(self.type()," ".join(self.tokens())).strip()
 
    def __repr__ (self):
-      return "buildCondition(pname={},tname={},home={},tokens={})".format(self.pname,self.tname,self.home,str(self).split(" "))
+      #return "buildCondition(pname={},tname={},home={},tokens={})".format(self.pname,self.tname,self.home,str(self).split(" "))
+      return "buildCondition(tokens={})".format(str(self).split(" "))
 
    def type (self):
       raise NotImplementedError("Instruction subclass must override type().")
@@ -508,6 +509,46 @@ class StartInstruction (Instruction):
 
    def tokens(self):
       return [self.rawTime]
+
+class SpeedInstruction (Instruction):
+   desc = """Plays the file at the given playback speed (from 0.25 to 4.00 with 1.00 being regular speed, anything outside the range won't work)."""
+
+   def __init__ (self, tokens, **kwargs):
+      speedstring = tokens[0]
+      self.rawSpeed = speedstring
+      self.playbackSpeed = float(speedstring)
+
+   def prep (self, player):
+      player.instructionsStart.append(self)
+      player.playbackSpeed = self.playbackSpeed
+
+   def run (self, player):
+      player.song.set_rate(self.playbackSpeed)
+
+   def type (self):
+      return "speed"
+
+   def tokens(self):
+      return [self.rawSpeed]
+
+class RandomiseInstruction (Instruction):
+   desc = """If all songs for a single player have this condition, Rigdio will randomly pick and play a song from the list everytime instead of following priority."""
+
+   def __init__ (self, tokens, **kwargs):
+      None
+
+   def prep (self, player):
+      player.instructionsStart.append(self)
+      player.randomise = True
+
+   def run (self, player):
+      player.randomise = True
+
+   def type (self):
+      return "randomise"
+
+   def tokens(self):
+      return []
 
 class PauseInstruction (Instruction):
    desc = """Specify action taken when goalhorn is paused."""
@@ -613,6 +654,8 @@ conditions = {
    #"if" : IfCondition,
    # instruction; now separate, only here for legacy support
    "start" : StartInstruction,
+   "speed" : SpeedInstruction,
+   "randomise" : RandomiseInstruction,
    "pause" : PauseInstruction,
    "end" : EndInstruction,
    "event" : EventInstruction # deprecated, for .4ccm use
@@ -620,6 +663,8 @@ conditions = {
 
 instructions = {
    "start" : StartInstruction,
+   "speed" : SpeedInstruction,
+   "randomise" : RandomiseInstruction,
    "pause" : PauseInstruction,
    "end" : EndInstruction
 }
@@ -745,7 +790,7 @@ class InstructionList:
       self.instructions = []
       for instruction in raw:
          if not isinstance(instruction,dict):
-            print("ERROR: condition list entry must be dict, got {}.".format(type(condition)))
+            print("ERROR: condition list entry must be dict, got {}.".format(type(instruction)))
          if len(instruction.keys()) > 1:
             print("WARNING: multiple keys in condition entry. Did you forget a - at the beginning of a line?")
          key = None
@@ -753,4 +798,4 @@ class InstructionList:
             key = temp
             break
          condType = instructions[key.lower()]
-         self.conditions.append(condType(tokens=instruction[key] if isinstance(instruction[key],list) else [instruction[key]]))
+         self.instructions.append(condType(tokens=instruction[key] if isinstance(instruction[key],list) else [instruction[key]]))

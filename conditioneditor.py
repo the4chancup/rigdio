@@ -91,6 +91,8 @@ class ConditionEditor (Frame):
          "not" : NotConditionEditor,
          # instructions
          "start" : StartInstructionEditor,
+         "speed" : SpeedInstructionEditor,
+         "randomise" : lambda master,cond: EmptyConditionEditor(master,cond,RandomiseInstruction),
          "pause" : PauseInstructionEditor,
          "end" : EndInstructionEditor,
          "event" : EventInstructionEditor
@@ -407,6 +409,30 @@ class StartInstructionEditor (ConditionEditor):
          messagebox.showwarning("Input Error", "Start instruction requires a time formatted as any of: day:hour:min:sec, hour:min:sec, min:sec, or sec.")
          return False
       return True
+
+class SpeedInstructionEditor (ConditionEditor):
+   def __init__ (self, master, cond):
+      super().__init__(master,cond,SpeedInstruction)
+
+   def default (self):
+      return ["1.00"]
+
+   def build (self, tokens):
+      Label(self, text="Playback Speed").grid(row=2,column=0,sticky=W)
+      self.fields.append(StringVar())
+      self.fields[0].set(tokens[0])
+      speedEntry = Entry(self, textvariable=self.fields[0])
+      speedEntry.grid(row=2,column=1,sticky=W+E)
+
+   def validate (self):
+      try:
+         if float(self.fields[0].get()) < 0.25 or float(self.fields[0].get()) > 4.00:
+            messagebox.showwarning("Input Error", "Speed instruction requires a number in the range of 0.25 to 4.00.")
+            return False
+         return True
+      except ValueError:
+         messagebox.showwarning("Input Error", "Speed instruction requires a number in the range of 0.25 to 4.00.")
+         return False
 
 class PauseInstructionEditor (ConditionEditor):
    def __init__ (self, master, cond):

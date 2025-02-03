@@ -61,10 +61,14 @@ class PlayerButtons:
             self.game.score(self.pname, self.clists.home)
          # pass it up to the list manager
          try:
-            # disable the playback slider and play the song at the playback speed set
-            self.frame.disablePlaybackSpeedSlider(True)
-            self.clists.playSong()
-            self.clists.song.song.set_rate(self.frame.playbackSpeedMenu.get())
+            # if this is the first time this song is being played and it has a custom playback speed set, set the slider to that speed
+            # the playback speed will still use the exact value specified in the .4cc, it's just to show that it's been modified
+            # after the first time, if the playback speed slider has been moved, it will use the value of the slider instead
+            if self.clists.playSong():
+               self.frame.master.playbackSpeedMenu.set(self.clists.song.playbackSpeed)
+            else:
+               self.clists.song.song.set_rate(self.frame.master.playbackSpeedMenu.get())
+            self.frame.master.disablePlaybackSpeedSlider(True)
 
             # if the song is the victory anthem, have a sleep delay to retrieve song duration before starting up the timer
             if self.victoryAnthem:
@@ -81,7 +85,7 @@ class PlayerButtons:
          self.playButton.configure(relief=SUNKEN)
       else:
          # enable the playback slider and pause the song
-         self.frame.disablePlaybackSpeedSlider(False)
+         self.frame.master.disablePlaybackSpeedSlider(False)
          self.clists.pauseSong()
          # pause the VA timer
          if self.victoryAnthem:
@@ -145,6 +149,7 @@ class TeamMenuLegacy (Frame):
    def __init__ (self, master, tname, players, home, game):
       Frame.__init__(self, master)
       # store information from constructor
+      self.master = master
       self.tname = tname
       self.players = players
       self.home = home
@@ -153,9 +158,6 @@ class TeamMenuLegacy (Frame):
       self.playerNames = [x for x in self.players.keys() if x not in reserved]
       self.playerNames.sort()
       # tkinter frame containing menu
-      # slider for playback speed
-      self.playbackSpeedMenu = None
-      self.buildPlaybackSpeedSlider()
       # button for anthem
       self.buildAnthemButtons()
       # buttons for victory anthems
@@ -184,19 +186,6 @@ class TeamMenuLegacy (Frame):
          PlayerButtons(self, self.players[name], self.home, self.game).insert(startRow+3+2*i)
       # returns the row right after the goalhorns are built, for the song timer
       return startRow+3+(2*len(self.playerNames))
-
-   def buildPlaybackSpeedSlider (self):
-      Label(self, text="Playback Speed").grid(row=0, column=0, columnspan=2)
-      self.playbackSpeedMenu = Scale(self, from_=0.25, to=4.00, orient=HORIZONTAL, command=NONE, resolution=0.25, showvalue=1, digits=3)
-      self.playbackSpeedMenu.set(1.00)
-      self.playbackSpeedMenu.grid(row=1, column=0, columnspan=2)
-
-   # used to disable the use of the playback speed slider when a song is playing, to make it obvious what the current playback speed is
-   def disablePlaybackSpeedSlider (self, disable):
-      if self.playbackSpeedMenu is not None:
-         self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
-         self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
-
    
    def buildSongTimer (self, timerRow):
       self.timerFrame = Frame(self)
