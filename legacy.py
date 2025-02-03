@@ -259,7 +259,7 @@ class PlayerManager:
             continue
          # if randomise is true, check if all other songs have randomise true as well
          # do not count warcry songs
-         if self.clists[i].randomise and not self.clists[i].warcry and not self.warcry:
+         if self.clists[i].randomise and not self.clists[i].warcry:
             f, randomSong = 0, True
             while f < len(self.clists):
                # if one of them is false and they're not a warcry, do not play a random song
