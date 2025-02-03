@@ -71,7 +71,6 @@ class Rigdio (Frame):
       manualChants = Frame(self)
       Label(manualChants, text=None).grid(row=0,columnspan=2)
       Button(manualChants, text="Manual Chants", command=self.chant_window).grid(row=1,columnspan=2)
-      #manualChants.pack()
       manualChants.grid(row=2, column=1)
       # events
       self.events = EventController()
@@ -80,7 +79,7 @@ class Rigdio (Frame):
    
    # open and close the chants window
    def chant_window(self):
-      # This prevents multiple clicks opening multiple windows
+      # this prevents multiple clicks opening multiple windows
       if self.chantswindow is not None:
          print("Manual chant window already open, attempting to take focus.")
          self.chantswindow.focus_force()
@@ -90,15 +89,7 @@ class Rigdio (Frame):
 
    def close(self):
       if self.chantswindow is not None:
-         # stops and resets the active chant, and ends the thread that checks if the chant is done early
-         activeChant = self.chantswindow.chantsFrame.activeChant
-         if (activeChant is not None):
-            activeChant.song.stop()
-            activeChant.fade = None
-            activeChant = None
-         self.chantswindow.chantsFrame.endThreadEarly = True
-         
-         # Destroy the chants window and reset the value to None
+         # destroys the chants window and resets the value to None
          self.chantswindow.destroy()
          self.chantswindow = None
          self.chantsManager.window = None
