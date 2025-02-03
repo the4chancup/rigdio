@@ -1,7 +1,7 @@
 from tkinter import *
 from config import settings
 
-import os.path, vlc, threading, time
+import os.path, vlc, threading, time, random
 
 # chants window class
 class chantswindow(Toplevel):
@@ -66,27 +66,36 @@ class ChantsFrame(Frame):
    def endThread (self, event):
       self.endThreadEarly = True
 
+   # creates the chant buttons
    def createChants (self, home = False, away = False):
       if home:
          self.clearChantList(self.homeChantsList)
          
          if self.chantsManager.homeChants is not None:
             chants = self.chantsManager.homeChants
+            # a chant button that plays a random chant when it's pressed
+            self.randomChant = ChantsButton(self, chants, "Random", True, True)
+            self.randomChant.insert(8)
+
             for i in range(len(chants)):
                chantName = os.path.basename(chants[i].songname)
                self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
                self.homeChantsList.append(self.chantsButton)
-               self.chantsButton.insert(i+8)
+               self.chantsButton.insert(i+9)
       if away:
          self.clearChantList(self.awayChantsList)
 
          if self.chantsManager.awayChants is not None:
             chants = self.chantsManager.awayChants
+            # a chant button that plays a random chant when it's pressed
+            self.randomChant = ChantsButton(self, chants, "Random", False, True)
+            self.randomChant.insert(8)
+
             for i in range(len(chants)):
                chantName = os.path.basename(chants[i].songname)
                self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
                self.awayChantsList.append(self.chantsButton)
-               self.chantsButton.insert(i+8)
+               self.chantsButton.insert(i+9)
 
    # clears out chants in the window
    def clearChantList (self, chantList):
@@ -137,14 +146,16 @@ class ChantsFrame(Frame):
 
 # creates and manages the chant buttons
 class ChantsButton:
-   def __init__ (self, frame, chant, text, home):
+   def __init__ (self, frame, chant, text, home, random = False):
+      # used to randomize the chant by having the argument take in the list of chants instead
+      if random and isinstance(chant, list):
+         self.chantList = chant
       self.chant = chant
       self.frame = frame
       self.text = text
       self.home = home
+      self.random = random
 
-      # how long a chant can be played for until it begins to fade out
-      self.fadeOutTime = self.frame.chantTimer.get()
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=settings.colours["home" if self.home else "away"])
 
    def playChant (self):
@@ -152,6 +163,9 @@ class ChantsButton:
       if self.frame.activeChant is not None:
          print("Denied, chant currently playing")
       else:
+         # randomly pick a chant from the list and set as this button's chant
+         if (self.random):
+            self.chant = random.choice(self.chantList)
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
          self.frame.activeChant = self.chant
@@ -159,7 +173,7 @@ class ChantsButton:
          self.chant.reloadSong()
          self.chant.play()
          print("Chant now playing")
-         print("Chant Timer: {} seconds ".format(str(self.fadeOutTime)))
+         print("Chant Timer: {} seconds ".format(str(self.frame.chantTimer.get())))
          # while greying out the timer stuff and starting the chant end checker thread
          self.frame.disableChantTimer(True)
          self.chantEndCheck.start()
@@ -180,7 +194,7 @@ class ChantsButton:
             self.chantDone()
             self.chantEndCheck = None
          # checks if the user is even using the timer in the first place as well
-         elif self.frame.usingTimer and (time.time() - self.chantStart) > self.fadeOutTime:
+         elif self.frame.usingTimer and (time.time() - self.chantStart) > self.frame.chantTimer.get():
             print("Chant timed out, fade starting")
             self.chant.fade = True
             self.chant.fadeOut()

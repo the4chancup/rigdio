@@ -285,6 +285,9 @@ class PlayerManager:
          self.lastSong = self.song
          self.song = None
 
+   # if the song is currently playing or has been played, reset it
    def resetLastPlayed (self):
-      if self.lastSong is not None:
+      if self.lastSong is not None or self.song is not None:
+         self.pauseSong()
+         self.lastSong.song.stop()
          self.lastSong.reloadSong()

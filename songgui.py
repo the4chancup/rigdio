@@ -15,6 +15,7 @@ class PlayerButtons:
       self.pname = clists[0].pname
       # text and buttons
       self.text = text
+      self.frame = frame
       # check if text is none (most players)
       if self.text is None:
          self.text = "\n".join([x.lstrip() for x in self.pname.split(",")])
@@ -27,14 +28,15 @@ class PlayerButtons:
       ## Home anthem button is hooked to this by the main client, to stop it when it starts
       self.awayButtonHook = None
       # text was specified, so this is a button for a reserved keyword
-      self.listButton = Button(frame, text="?", command=self.showSongs, bg=settings.colours["home" if home else "away"])
-      self.playButton = Button(frame, text=self.text, command=self.playSong, bg=settings.colours["home" if home else "away"])
-      self.resetButton = Button(frame, text="⟲", command=self.resetSong, bg=settings.colours["home" if home else "away"])
-      self.volume = Scale(frame, from_=0, to=100, orient=HORIZONTAL, command=self.clists.adjustVolume, showvalue=0)
+      self.listButton = Button(self.frame, text="?", command=self.showSongs, bg=settings.colours["home" if home else "away"])
+      self.playButton = Button(self.frame, text=self.text, command=self.playSong, bg=settings.colours["home" if home else "away"])
+      self.resetButton = Button(self.frame, text="⟲", command=self.resetSong, bg=settings.colours["home" if home else "away"])
+      self.volume = Scale(self.frame, from_=0, to=100, orient=HORIZONTAL, command=self.clists.adjustVolume, showvalue=0)
       self.volume.set(80)
 
    def resetSong (self):
       self.clists.resetLastPlayed()
+      self.playButton.configure(relief=RAISED)
 
    def playSong (self):
       # if home team anthem, pause away team anthem
@@ -47,7 +49,10 @@ class PlayerButtons:
             self.game.score(self.pname, self.clists.home)
          # pass it up to the list manager
          try:
+            # disable the playback slider and play the song at the playback speed set
+            self.frame.disablePlaybackSpeedSlider(True)
             self.clists.playSong()
+            self.clists.song.song.set_rate(self.frame.playbackSpeedMenu.get())
          # no song found
          except SongNotFound as e:
             print(e)
@@ -56,7 +61,8 @@ class PlayerButtons:
          # set the button as sunken
          self.playButton.configure(relief=SUNKEN)
       else:
-         # pause the song
+         # enable the playback slider and pause the song
+         self.frame.disablePlaybackSpeedSlider(False)
          self.clists.pauseSong()
          # set the button as raised
          self.playButton.configure(relief=RAISED)
@@ -92,6 +98,9 @@ class TeamMenuLegacy (Frame):
       self.playerNames = [x for x in self.players.keys() if x not in reserved]
       self.playerNames.sort()
       # tkinter frame containing menu
+      # slider for playback speed
+      self.playbackSpeedMenu = None
+      self.buildPlaybackSpeedSlider()
       # button for anthem
       self.buildAnthemButtons()
       # buttons for victory anthems
@@ -101,12 +110,12 @@ class TeamMenuLegacy (Frame):
 
    def buildAnthemButtons (self):
       self.anthemButtons = PlayerButtons(self, self.players["anthem"], self.home, self.game, "Anthem")
-      self.anthemButtons.insert(0)
+      self.anthemButtons.insert(2)
 
    def buildVictoryAnthemMenu (self):
       if "victory" in self.players:
-         PlayerButtons(self, self.players["victory"], self.home, self.game, "Victory Anthem").insert(2)
-         return 2
+         PlayerButtons(self, self.players["victory"], self.home, self.game, "Victory Anthem").insert(4)
+         return 4
       else:
          return 0
 
@@ -116,6 +125,18 @@ class TeamMenuLegacy (Frame):
       for i in range(len(self.playerNames)):
          name = self.playerNames[i]
          PlayerButtons(self, self.players[name], self.home, self.game).insert(startRow+2*i+3)
+
+   def buildPlaybackSpeedSlider (self):
+      Label(self, text="Playback Speed").grid(row=0, column=0, columnspan=2)
+      self.playbackSpeedMenu = Scale(self, from_=0.25, to=4.00, orient=HORIZONTAL, command=NONE, resolution=0.25, showvalue=1, digits=3)
+      self.playbackSpeedMenu.set(1.00)
+      self.playbackSpeedMenu.grid(row=1, column=0, columnspan=2)
+
+   # used to disable the use of the playback speed slider when a song is playing, to make it obvious what the current playback speed is
+   def disablePlaybackSpeedSlider (self, disable):
+      if self.playbackSpeedMenu is not None:
+         self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
+         self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
 
    def clear (self):
       for player in self.players.keys():
