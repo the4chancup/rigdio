@@ -615,7 +615,7 @@ conditions = {
    "start" : StartInstruction,
    "pause" : PauseInstruction,
    "end" : EndInstruction,
-   #"event" : EventInstruction # deprecated, for .4ccm use
+   "event" : EventInstruction # deprecated, for .4ccm use
 }
 
 instructions = {
