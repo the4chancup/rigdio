@@ -2,9 +2,8 @@ import time
 import random
 from config import settings
 from threading import RLock
-from senPy import SENPAIListener
 
-class EventManager (SENPAIListener):
+class EventManager ():
    events = set([
                   "Player Sub",
                   "Card",
@@ -74,17 +73,11 @@ class EventController:
 
    def setHome (self, parsed):
       self.home.setClips(parsed)
-      if len(self.home.clips.keys()) > 0:
-         print("Home team event clips ready.")
-      else:
-         print("Home team has no event clips.")
+      print("Home team event clips ready.")
 
    def setAway (self, parsed):
       self.away.setClips(parsed)
-      if len(self.away.clips.keys()) > 0:
-         print("Away team event clips ready.")
-      else:
-         print("Away team has no event clips.")
+      print("Away team event clips ready.")
 
    def start (self, SENPAI):
       if not self.registered:

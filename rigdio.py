@@ -13,10 +13,9 @@ from rigparse import parse as parseLegacy
 from gamestate import GameState
 from songgui import *
 from version import rigdio_version as version
-from senPy import ThreadSENPAI, SENPAINotFound, SENPAIConnectionFailed, SENPAIPipeClosed
 from rigdj_util import setMaxWidth
-from chants import ChantManager
 from event import EventController
+import chantswindow as cWin
 
 from logger import startLog
 if __name__ == '__main__':
@@ -65,27 +64,36 @@ class Rigdio (Frame):
       self.scoreWidget.grid(row=0, column=1)
       # game type selector
       self.initGameTypeMenu().grid(row=1,column=1)
-      # chant buttons
-      self.chants = ChantManager()
-      senpaiControls = Frame(self)
-      Button(senpaiControls, text="Connect to SENPAI", command=self.activateSENPAI).pack()
-      Label(senpaiControls, text="Chant Volume").pack()
-      chantVolume = Scale(senpaiControls, from_=0, to=100, orient=HORIZONTAL, command=self.chants.adjustVolume, showvalue=0)
-      chantVolume.set(100)
-      chantVolume.pack()
+      # creates chants window and manager
+      self.chantswindow = None
+      self.chantsManager = cWin.ChantsManager(self.chantswindow)
       # manual chant controls
-      manualChants = Frame(senpaiControls)
-      Label(manualChants, text="Manual Chants").grid(row=0,column=0,columnspan=2)
-      Button(manualChants, text="Home", command=self.chants.playHome, bg=settings.colours["home"]).grid(row=1,column=0)
-      Button(manualChants, text="Away", command=self.chants.playAway, bg=settings.colours["away"]).grid(row=1,column=1)
-      manualChants.pack()
-      senpaiControls.grid(row=2, column=1)
+      manualChants = Frame(self)
+      Label(manualChants, text=None).grid(row=0,columnspan=2)
+      Button(manualChants, text="Manual Chants", command=self.chant_window).grid(row=1,columnspan=2)
+      #manualChants.pack()
+      manualChants.grid(row=2, column=1)
       # events
       self.events = EventController()
       # undo (temporary)
       Button(self, text="Undo Last Goal", command=self.game.undoLast).grid(row=3, column=1)
-      # SENPAI integration
-      self.SENPAI = None
+   
+   # open and close the chants window
+   def chant_window(self):
+      # This prevents multiple clicks opening multiple windows
+      if self.chantswindow is not None:
+         print("Manual chant window already open, attempting to take focus.")
+         self.chantswindow.focus_force()
+         return
+      self.chantswindow = cWin.chantswindow(self, self.chantsManager)
+      self.chantsManager.window = self.chantswindow
+
+   def close(self):
+        # Destroy the chants window and reset the value to None
+        if self.chantswindow is not None:
+            self.chantswindow.destroy()
+            self.chantswindow = None
+            self.chantsManager.window = None
 
    def initGameTypeMenu (self):
       gameTypeMenu = Frame(self)
@@ -123,15 +131,15 @@ class Rigdio (Frame):
          if self.away is not None:
             self.home.anthemButtons.awayButtonHook = self.away.anthemButtons
          self.home.grid(row = 1, column = 0, rowspan=2, sticky=N)
-         if self.chants is not None:
+         if self.chantsManager is not None:
             if "chant" in tmusic and tmusic["chant"] is not None:
                print("Got {} chants for team /{}/.".format(len(tmusic["chant"]), tname))
                for clist in tmusic["chant"]:
                   print("\t{}".format(clist.songname))
-               self.chants.setHome(parsed=tmusic["chant"])
+               self.chantsManager.setHome(parsed=tmusic["chant"])
             else:
                print("No chants for team /{}/.".format(tname))
-               self.chants.setHome(parsed=None)
+               self.chantsManager.setHome(parsed=None)
          if self.events is not None:
             self.events.setHome(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
@@ -144,15 +152,15 @@ class Rigdio (Frame):
          if self.home is not None:
             self.home.anthemButtons.awayButtonHook = self.away.anthemButtons
          self.away.grid(row = 1, column = 2, rowspan=2, sticky=N)
-         if self.chants is not None:
+         if self.chantsManager is not None:
             if "chant" in tmusic and tmusic["chant"] is not None:
                print("Got {} chants for team /{}/.".format(len(tmusic["chant"]), tname))
                for clist in tmusic["chant"]:
                   print("\t{}".format(clist.songname))
-               self.chants.setAway(parsed=tmusic["chant"])
+               self.chantsManager.setAway(parsed=tmusic["chant"])
             else:
                print("No chants for team /{}/.".format(tname))
-               self.chants.setAway(parsed=None)
+               self.chantsManager.setAway(parsed=None)
          if self.events is not None:
             self.events.setAway(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
@@ -179,17 +187,6 @@ class Rigdio (Frame):
          self.scoreWidget.updateScore()
       else:
          messagebox.showerror("Error","File {} not found.".format(f))
-
-   def activateSENPAI (self):
-      self.SENPAI = ThreadSENPAI()
-      self.chants.start(self.SENPAI)
-      self.events.start(self.SENPAI)
-      try:
-         self.SENPAI.start()
-         print("SENPAI connection established.")
-      except Exception as e:
-         messagebox.showerror("Unable to start SENPAI!",str(e))
-
 
 def resource_path(relative_path):
    """ Get absolute path to resource, works for dev and for PyInstaller """

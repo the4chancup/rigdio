@@ -39,7 +39,7 @@ def uiConvert (players):
 
       Note that this does NOT change the pname values inside the condition lists themselves.
    """
-   for key in players.keys():
+   for key in list(players):
       temp = uiName(key)
       if temp != key:
          players[temp] = players[key]
@@ -54,7 +54,7 @@ def outConvert (players):
       "Goalhorn" : "goal",
       "Victory Anthem" : "victory",
    }
-   for key in players.keys():
+   for key in list(players):
       if key in uiNames:
          players[uiNames[key]] = players[key]
          players.pop(key)

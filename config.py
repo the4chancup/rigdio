@@ -40,8 +40,7 @@ defaults = dict(
          yellow=4,
          red=5
       )
-   ),
-   speed=1
+   )
 )
 
 def genCfg ():

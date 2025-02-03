@@ -31,7 +31,7 @@ class PlayerButtons:
       self.playButton = Button(frame, text=self.text, command=self.playSong, bg=settings.colours["home" if home else "away"])
       self.resetButton = Button(frame, text="⟲", command=self.resetSong, bg=settings.colours["home" if home else "away"])
       self.volume = Scale(frame, from_=0, to=100, orient=HORIZONTAL, command=self.clists.adjustVolume, showvalue=0)
-      self.volume.set(100)
+      self.volume.set(80)
 
    def resetSong (self):
       self.clists.resetLastPlayed()
