@@ -162,7 +162,7 @@ class TeamGoalsCondition (GoalCondition):
       return (gamestate.team_score(self.home),)
 
    def type (self):
-      return "team goals"
+      return "teamgoals"
 
 class LeadCondition (GoalCondition):
    desc = """Plays if the goal difference (yourteam - theirteam) meets the given condition."""
@@ -182,6 +182,36 @@ class LeadCondition (GoalCondition):
       return "lead"
 
    # other methods don't need to be implemented because they're the same as GoalCondition
+
+class FirstCondition (Condition):
+   desc = """Plays if this is the first goal that the team has scored in this match."""
+   
+   def __init__ (self, tokens, **kwargs):
+      super().__init__(**kwargs)
+
+   def check(self, gamestate):
+      return gamestate.team_score(self.home) == 1
+
+   def type (self):
+      return "first"
+
+   def tokens (self):
+      return []
+
+class ComebackCondition (Condition):
+   desc = """Plays when the team was behind prior to this goal being scored. Equivalent to lead <= 0."""
+
+   def __init__(self, tokens, **kwargs):
+      super().__init__(**kwargs)
+
+   def check(self,gamestate):
+      return gamestate.team_score(self.home) <= gamestate.opponent_score(self.home) and gamestate.opponent_score(self.home) > 0
+
+   def type (self):
+      return "comeback"
+
+   def tokens (self):
+      return []
 
 class MatchCondition (Condition):
    desc = """Plays if the match any of the listed types."""
@@ -563,25 +593,19 @@ class EventInstruction (Instruction):
 
 conditions = {
    "goals" : GoalCondition,
-   "teamgoals" : TeamGoalsCondition, # deprecated, for .4ccm use
-   "team goals" : TeamGoalsCondition,
+   "teamgoals" : TeamGoalsCondition,
    "lead" : LeadCondition,
    "opponent" : OpponentCondition,
    "match" : MatchCondition,
    "home" : HomeCondition,
    "once" : OnceCondition,
-   "mostgoals" : MostGoalsCondition, # deprecated, for .4ccm use
-   "most goals" : MostGoalsCondition,
+   "mostgoals" : MostGoalsCondition,
    "every" : EveryCondition,
    # prompt
-   "time" : TimeCondition,
+   #"time" : TimeCondition, # not being used right now
    # magic
-   "brace" : lambda tokens, **kwargs: GoalCondition(tokens=["==",2],**kwargs),
-   "brace+" : lambda tokens, **kwargs: GoalCondition(tokens=[">=",2],**kwargs),
-   "hattrick" : lambda tokens, **kwargs: GoalCondition(tokens=["==",3],**kwargs),
-   "hattrick+" : lambda tokens, **kwargs: GoalCondition(tokens=[">=",3],**kwargs),
-   "comeback" : lambda tokens, **kwargs: LeadCondition(tokens=["<=",0],**kwargs),
-   "first" : lambda tokens, **kwargs: TeamGoalsCondition(tokens=["==",1],**kwargs),
+   "comeback" : ComebackCondition,
+   "first" : FirstCondition,
    # meta
    "not" : NotCondition,
    #"or" : OrCondition,
@@ -591,7 +615,7 @@ conditions = {
    "start" : StartInstruction,
    "pause" : PauseInstruction,
    "end" : EndInstruction,
-   "event" : EventInstruction # deprecated, for .4ccm use
+   #"event" : EventInstruction # deprecated, for .4ccm use
 }
 
 instructions = {
@@ -632,25 +656,89 @@ def buildCondition(tokens, **kwargs):
       raise ValueError("condition/instruction {} not recognised.".format(tokens[0]))
 
 class ConditionList:
-   def __init__ (self, raw):
+   def buildCondition(tokens, **kwargs):
+      if len(tokens) == 0:
+         return None # empty token list
+      try:
+         return conditions[tokens[0].lower()](tokens=tokens[1:],**kwargs)
+      except KeyError:
+         raise ValueError("condition/instruction {} not recognised.".format(tokens[0]))
+
+   def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True):
+      self.pname = pname
+      self.tname = tname
+      self.home = home
+      self.songname = songname
       self.conditions = []
-      for condition in raw:
-         if not isinstance(condition,dict):
-            print("ERROR: condition list entry must be dict, got {}.".format(type(condition)))
-         if len(condition.keys()) > 1:
-            print("WARNING: multiple keys in condition entry. Did you forget a - at the beginning of a line?")
-         key = None
-         for temp in condition.keys():
-            key = temp
-            break
-         condType = conditions[key.lower()]
-         self.conditions.append(condType(tokens=condition[key] if isinstance(condition[key],list) else [condition[key]]))
+      self.instructions = []
+      self.disabled = False
+      self.startTime = 0
+      self.endType = "loop"
+      self.pauseType = "continue"
+      for tokenStr in data:
+         tokens = processTokens(tokenStr)
+         condition = ConditionList.buildCondition(tokens, pname=self.pname, tname=self.tname, home=self.home)
+         if condition.isInstruction():
+            self.instructions.append(condition)
+         else:
+            self.conditions.append(condition)
+      self.all = self.conditions + self.instructions
 
-   def __str__ (self):
-      return ";".join([str(x) for x in self.conditions])
+   def __str__(self):
+      output = "{}".format(basename(self.songname))
+      for condition in self.conditions:
+         output = output + ";" + str(condition)
+      for instruction in self.instructions:
+         output = output + ";" + str(instruction)
+      return output
+   __repr__ = __str__
 
-   def toYML (self):
-      return [x.toYML() for x in self.conditions]
+   def __len__ (self):
+      return len(self.all)
+
+   def __iter__ (self):
+      return self.all.__iter__()
+
+   def __getitem__ (self, key):
+      return self.all[key]
+
+   def __setitem__ (self, key, value):
+      temp = self.all[key]
+      if temp.isInstruction():
+         index = self.instructions.index(temp)
+         self.instructions[index] = value
+      else:
+         index = self.conditions.index(temp)
+         self.conditions[index] = value
+      # insert new value where it was
+      self.all[key] = value
+
+   def append (self, item):
+      self.all.append(item)
+      if item.isInstruction():
+         self.instructions.append(item)
+      else:
+         self.conditions.append(item)
+
+   def disable (self):
+      self.disabled = True
+
+   def pop (self, index = 0):
+      item = self.all.pop(index)
+      if item.isInstruction():
+         self.instructions.remove(item)
+      else:
+         self.conditions.remove(item)
+      return item
+
+   def check (self, gamestate):
+      if self.disabled:
+         raise UnloadSong
+      for condition in self.conditions:
+         print("Checking {}".format(condition))
+         if not condition.check(gamestate):
+            return False
+      return True
 
 class InstructionList:
    def __init__ (self, raw):

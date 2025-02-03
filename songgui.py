@@ -5,6 +5,8 @@ from rigdio_except import UnloadSong, SongNotFound
 from legacy import PlayerManager
 from config import settings
 
+from time import sleep, time
+
 class PlayerButtons:
    def __init__ (self, frame, clists, home, game, text = None):
       # song information
@@ -16,6 +18,13 @@ class PlayerButtons:
       # text and buttons
       self.text = text
       self.frame = frame
+      # timer stuff
+      self.victoryAnthem = (self.pname == "victory")
+      if self.victoryAnthem:
+         # vlc takes some time to retrieve song duration, so a sleep delay is needed
+         self.sleepDelay = 1
+         self.timer = Timer(self.frame, self, self.sleepDelay)
+         self.songDuration = int()
       # check if text is none (most players)
       if self.text is None:
          self.text = "\n".join([x.lstrip() for x in self.pname.split(",")])
@@ -37,6 +46,9 @@ class PlayerButtons:
    def resetSong (self):
       self.clists.resetLastPlayed()
       self.playButton.configure(relief=RAISED)
+      # reset the VA timer
+      if self.victoryAnthem:
+         self.timer.resetTimer()
 
    def playSong (self):
       # if home team anthem, pause away team anthem
@@ -53,6 +65,13 @@ class PlayerButtons:
             self.frame.disablePlaybackSpeedSlider(True)
             self.clists.playSong()
             self.clists.song.song.set_rate(self.frame.playbackSpeedMenu.get())
+
+            # if the song is the victory anthem, have a sleep delay to retrieve song duration before starting up the timer
+            if self.victoryAnthem:
+               sleep(self.sleepDelay)
+               self.songDuration = int(self.clists.song.song.get_length()/1000)
+               self.timer.timerStart()
+
          # no song found
          except SongNotFound as e:
             print(e)
@@ -64,6 +83,9 @@ class PlayerButtons:
          # enable the playback slider and pause the song
          self.frame.disablePlaybackSpeedSlider(False)
          self.clists.pauseSong()
+         # pause the VA timer
+         if self.victoryAnthem:
+            self.timer.timerPause()
          # set the button as raised
          self.playButton.configure(relief=RAISED)
 
@@ -86,6 +108,39 @@ class PlayerButtons:
       self.resetButton.grid(row=row,column=2,sticky=N+S, padx=2, pady=(5,0))
       self.volume.grid(row=row+1,column=0,columnspan=3,sticky=E+W, pady=(0,5))
 
+class Timer:
+   def __init__ (self, frame, songui, delay):
+      self.frame = frame
+      self.songui = songui
+      self.delay = delay
+      self.timer = int()
+      self.stopCounting = False
+
+   def timerStart (self):
+      # increases the timer by the sleep delay (that occurs when starting the VA) before starting the counting loop
+      self.timer += self.delay
+      self.frame.updateSongTimer(self.timer, self.songui.songDuration)
+      self.frame.after(1000, self.timerCountSecond)
+
+   # used to stop the timer loop
+   def timerPause (self):
+      self.stopCounting = True
+
+   # updates the song timer by one second in a loop
+   def timerCountSecond (self):
+      # if the song is paused, don't loop instead and reset the bool
+      if self.stopCounting:
+         self.stopCounting = False
+      else:
+         self.timer += 1
+         self.frame.updateSongTimer(self.timer, self.songui.songDuration)
+         self.frame.after(1000, self.timerCountSecond)
+
+   # resets the internal and UI timers to 0
+   def resetTimer (self):
+      self.timer = 0
+      self.frame.updateSongTimer(0, 0)
+
 class TeamMenuLegacy (Frame):
    def __init__ (self, master, tname, players, home, game):
       Frame.__init__(self, master)
@@ -106,7 +161,9 @@ class TeamMenuLegacy (Frame):
       # buttons for victory anthems
       startRow = self.buildVictoryAnthemMenu() + 2
       # buttons for goalhorns
-      self.buildGoalhornMenu(startRow)
+      timerRow = self.buildGoalhornMenu(startRow)
+      # victory song timer at the end
+      self.buildSongTimer(timerRow)
 
    def buildAnthemButtons (self):
       self.anthemButtons = PlayerButtons(self, self.players["anthem"], self.home, self.game, "Anthem")
@@ -124,7 +181,9 @@ class TeamMenuLegacy (Frame):
       PlayerButtons(self, self.players["goal"], self.home, self.game, "Standard Goalhorn").insert(startRow+1)
       for i in range(len(self.playerNames)):
          name = self.playerNames[i]
-         PlayerButtons(self, self.players[name], self.home, self.game).insert(startRow+2*i+3)
+         PlayerButtons(self, self.players[name], self.home, self.game).insert(startRow+3+2*i)
+      # returns the row right after the goalhorns are built, for the song timer
+      return startRow+3+(2*len(self.playerNames))
 
    def buildPlaybackSpeedSlider (self):
       Label(self, text="Playback Speed").grid(row=0, column=0, columnspan=2)
@@ -137,6 +196,23 @@ class TeamMenuLegacy (Frame):
       if self.playbackSpeedMenu is not None:
          self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
          self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
+
+   
+   def buildSongTimer (self, timerRow):
+      self.timerFrame = Frame(self)
+      Label(self.timerFrame, text="Victory Song Duration - ").grid(row=0, column=0)
+      self.timeText = Label(self.timerFrame)
+      self.updateSongTimer(0, 0)
+      self.timeText.grid(row=0, column=1)
+      self.timerFrame.grid(row=timerRow, column=0, columnspan=3)
+
+   # updates the UI timer
+   def updateSongTimer (self, timer, duration):
+      timerMins = int(timer/60)
+      timerSecs = timer%60
+      durationMins = int(duration/60)
+      durationSecs = duration%60
+      self.timeText.config(text = "{}:{} / {}:{}".format(timerMins, str(timerSecs).zfill(2), durationMins, str(durationSecs).zfill(2)))
 
    def clear (self):
       for player in self.players.keys():

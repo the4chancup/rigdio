@@ -89,6 +89,8 @@ class Rigdio (Frame):
 
    def close(self):
       if self.chantswindow is not None:
+         # ends the ongoing chant thread early
+         self.chantswindow.chantsFrame.endThread()
          # destroys the chants window and resets the value to None
          self.chantswindow.destroy()
          self.chantswindow = None

@@ -104,10 +104,10 @@ class SongRow:
       # open file for the song name
       output.append(Button(self.master,text="Open", command=self.openFile))
       # call updateName every time the entry is changed
-      sv = StringVar()
-      sv.trace("w", lambda name, index, mode: self.updateName())
+      self.sv = StringVar()
+      self.sv.trace_add("write", self.updateName)
       # the entry object itself
-      self.songNameEntry = Entry(self.master, width=50, textvariable=sv)
+      self.songNameEntry = Entry(self.master, width=50, textvariable=self.sv)
       output.append(self.songNameEntry)
       # extra spacing, if you haven't figured out the pattern yet
       output.append(Label(self.master,text=" "))
@@ -127,7 +127,7 @@ class SongRow:
       self.clear()
       self.master.pop(self.row-1)
 
-   def updateName (self):
+   def updateName (self, *args):
       """
          Sets the song name in the clist to the song name in songNameEntry. Called automatically whenever songNameEntry changes.
 
@@ -520,10 +520,10 @@ class Editor (Frame):
       temp = Frame(leftFrame)
       Label(temp, text="Team Name:").pack(side=LEFT)
       # this makes the editor update whenever team name is modified
-      sv = StringVar()
-      sv.trace("w", lambda name, index, mode: self.updateEditor())
+      self.sv = StringVar()
+      self.sv.trace_add("write", self.updateEditor)
       # create the actual entry object
-      self.teamEntry = Entry(temp, width=20, textvariable=sv)
+      self.teamEntry = Entry(temp, width=20, textvariable=self.sv)
       self.teamEntry.pack(side=LEFT)
 
       # player menu
@@ -553,7 +553,7 @@ class Editor (Frame):
       self.playerMenu.updateList([])
       self.playerMenu.updateSongs({})
 
-   def updateEditor (self):
+   def updateEditor (self, *args):
       if self.previewer is not None:
          self.previewer.update()
 

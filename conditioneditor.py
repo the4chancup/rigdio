@@ -76,6 +76,7 @@ class ConditionEditor (Frame):
       editors = {
          # standard conditions
          "goals" : GoalConditionEditor,
+         "teamgoals" : TeamGoalConditionEditor,
          "comeback" : lambda master,cond: EmptyConditionEditor(master,cond,ComebackCondition),
          "first" : lambda master,cond: EmptyConditionEditor(master,cond,FirstCondition),
          "opponent" : OpponentConditionEditor,
@@ -115,6 +116,36 @@ class GoalConditionEditor (ConditionEditor):
 
    def build (self, tokens):
       Label(self, text="Goals By Player").grid(row=0,column=0,sticky=W)
+      # operator
+      self.fields.append(StringVar())
+      self.fields[0].set(tokens[0])
+      operators = ["==", "!=", "<", ">", "<=", ">="]
+      opSelector = OptionMenu(self, self.fields[0], *operators)
+      setMaxWidth(operators, opSelector)
+      opSelector.grid(row=0,column=1,sticky=W)
+      # value
+      self.fields.append(StringVar())
+      self.fields[1].set(str(tokens[1]))
+      countEntry = Entry(self, textvariable=self.fields[1])
+      countEntry.grid(row=0,column=2,sticky=W)
+
+   def validate (self):
+      try: 
+         int(self.fields[1].get())
+      except:
+         messagebox.showwarning("Input Error", "Goals condition must be compared to an integer.")
+         return False
+      return True
+
+class TeamGoalConditionEditor (ConditionEditor):
+   def __init__ (self, master, cond):
+      super().__init__(master,cond,TeamGoalsCondition)
+   
+   def default (self):
+      return ["==",2]
+
+   def build (self, tokens):
+      Label(self, text="Team Goals").grid(row=0,column=0,sticky=W)
       # operator
       self.fields.append(StringVar())
       self.fields[0].set(tokens[0])

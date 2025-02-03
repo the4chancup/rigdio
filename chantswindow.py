@@ -16,10 +16,7 @@ class chantswindow(Toplevel):
       self.title("Manual Chants")
       # Change what happens when you click the X button
       # This is done so changes also reflect in the main window class
-      #self.protocol('WM_DELETE_WINDOW', self.chantsFrame.endThread)
       self.protocol('WM_DELETE_WINDOW', parent.close)
-      # When the window is destroyed, end the chant thread early
-      self.bind("<Destroy>", self.chantsFrame.endThread)
 
 # UI frame for the window
 class ChantsFrame(Frame):
@@ -35,7 +32,7 @@ class ChantsFrame(Frame):
       # blank space between the sliders and chant buttons to separate them, make it look nicer
       Label(self, text=None).grid(columnspan=2)
 
-      # chant timer checkbox, for if the user
+      # chant timer checkbox, for if the user doesn't want to use it
       self.timerCheckbox = IntVar(value=1)
       self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.timerCheckbox, command=self.enableTimer)
       self.enableTimerCheckbox.grid(columnspan=2)
@@ -50,13 +47,13 @@ class ChantsFrame(Frame):
       # blank space between the sliders and chant buttons to separate them, make it look nicer
       Label(self, text=None).grid(columnspan=2)
 
+      # chant that is currently being played
+      self.activeChant = None
+
       # chants lists to replace buttons when new chants are loaded
       self.homeChantsList = list()
       self.awayChantsList = list()
       self.createChants(self.chantsManager.homeChants is not None, self.chantsManager.awayChants is not None)
-
-      # chant that is currently being played
-      self.activeChant = None
 
       # used to end the checkChantDone thread early
       self.endThreadEarly = False
@@ -64,11 +61,14 @@ class ChantsFrame(Frame):
       # used to check if program is using the timer
       self.usingTimer = True
 
-   def endThread (self, event):
+   # used to end the thread early, called by the main rigdio file when chants window is closed
+   def endThread (self):
       self.endThreadEarly = True
 
    # creates the chant buttons
    def createChants (self, home = False, away = False):
+      if self.activeChant is not None:
+         self.endThread()
       if home:
          self.clearChantList(self.homeChantsList)
          
@@ -77,6 +77,7 @@ class ChantsFrame(Frame):
             # a chant button that plays a random chant when it's pressed
             self.randomChant = ChantsButton(self, chants, "Random", True, True)
             self.randomChant.insert(8)
+            self.homeChantsList.append(self.randomChant)
 
             for i in range(len(chants)):
                chantName = os.path.basename(chants[i].songname)
@@ -91,12 +92,15 @@ class ChantsFrame(Frame):
             # a chant button that plays a random chant when it's pressed
             self.randomChant = ChantsButton(self, chants, "Random", False, True)
             self.randomChant.insert(8)
+            self.awayChantsList.append(self.randomChant)
 
             for i in range(len(chants)):
                chantName = os.path.basename(chants[i].songname)
                self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
                self.awayChantsList.append(self.chantsButton)
                self.chantsButton.insert(i+9)
+      # so that any newly loaded chants follow the current slider value instead of the default
+      self.adjustVolume(self.chantVolume.get())
 
    # clears out chants in the window
    def clearChantList (self, chantList):
@@ -112,10 +116,11 @@ class ChantsFrame(Frame):
       # adjusts the volume of all the chants at the same time
       if self.allChants:
          for chantButton in self.allChants:
-            chantButton.chant.adjustVolume(value)
+            if not chantButton.random:
+               chantButton.chant.adjustVolume(value)
 
    def adjustTimer (self, value):
-      # shoves all of the chants into a single list
+      # shoves all of the chants (including the random buttons) into a single list
       self.allChants = self.homeChantsList + self.awayChantsList
 
       # adjusts the fade out timer of all the chants at the same time
@@ -185,10 +190,14 @@ class ChantsButton:
    def checkChantDone (self):
       self.chantStart = time.time()
       while self.chantEndCheck is not None:
-         # stops and resets the active chant
+         # stops the thread early, before the song has finished playing
          if self.frame.endThreadEarly:
-            print("Window closed")
+            print("Chant ended early")
+            # stops the song, resets the end thread bool, and enables the chant timer (bool reset and chant timer enable is for when new chants are loaded)
             self.chant.song.stop()
+            self.frame.endThreadEarly = False
+            self.frame.disableChantTimer(False)
+            # disables the fade, mark active chant as none, and kill the thread
             self.chant.fade = None
             self.frame.activeChant = None
             self.chantEndCheck = None
