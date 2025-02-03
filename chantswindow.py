@@ -16,6 +16,7 @@ class chantswindow(Toplevel):
       self.title("Manual Chants")
       # Change what happens when you click the X button
       # This is done so changes also reflect in the main window class
+      #self.protocol('WM_DELETE_WINDOW', self.chantsFrame.endThread)
       self.protocol('WM_DELETE_WINDOW', parent.close)
       # When the window is destroyed, end the chant thread early
       self.bind("<Destroy>", self.chantsFrame.endThread)
@@ -156,6 +157,8 @@ class ChantsButton:
       self.home = home
       self.random = random
 
+      # how long a chant can be played for until it begins to fade out
+      self.fadeOutTime = self.frame.chantTimer.get()
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=settings.colours["home" if self.home else "away"])
 
    def playChant (self):
@@ -173,7 +176,7 @@ class ChantsButton:
          self.chant.reloadSong()
          self.chant.play()
          print("Chant now playing")
-         print("Chant Timer: {} seconds ".format(str(self.frame.chantTimer.get())))
+         print("Chant Timer: {} seconds ".format(self.fadeOutTime))
          # while greying out the timer stuff and starting the chant end checker thread
          self.frame.disableChantTimer(True)
          self.chantEndCheck.start()
@@ -194,7 +197,7 @@ class ChantsButton:
             self.chantDone()
             self.chantEndCheck = None
          # checks if the user is even using the timer in the first place as well
-         elif self.frame.usingTimer and (time.time() - self.chantStart) > self.frame.chantTimer.get():
+         elif self.frame.usingTimer and (time.time() - self.chantStart) > self.fadeOutTime:
             print("Chant timed out, fade starting")
             self.chant.fade = True
             self.chant.fadeOut()
