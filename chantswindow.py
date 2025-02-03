@@ -45,31 +45,32 @@ class ChantsFrame(Frame):
 
    def createChants (self, home = False, away = False):
       if home:
-         # if there are already chants in the window, delete them
-         if self.homeChantsList:
-            for chant in self.homeChantsList:
-               chant.playButton.destroy()
-            self.homeChantsList.clear()
-
-         chants = self.chantsManager.homeChants
-         for i in range(len(chants)):
-            chantName = os.path.basename(chants[i].songname)
-            self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
-            self.homeChantsList.append(self.chantsButton)
-            self.chantsButton.insert(i+3)
+         self.clearChantList(self.homeChantsList)
+         
+         if self.chantsManager.homeChants is not None:
+            chants = self.chantsManager.homeChants
+            for i in range(len(chants)):
+               chantName = os.path.basename(chants[i].songname)
+               self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
+               self.homeChantsList.append(self.chantsButton)
+               self.chantsButton.insert(i+3)
       if away:
-         # if there are already chants in the window, delete them
-         if self.awayChantsList:
-            for chant in self.awayChantsList:
-               chant.playButton.destroy()
-            self.awayChantsList.clear()
+         self.clearChantList(self.awayChantsList)
 
-         chants = self.chantsManager.awayChants
-         for i in range(len(chants)):
-            chantName = os.path.basename(chants[i].songname)
-            self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
-            self.awayChantsList.append(self.chantsButton)
-            self.chantsButton.insert(i+3)
+         if self.chantsManager.awayChants is not None:
+            chants = self.chantsManager.awayChants
+            for i in range(len(chants)):
+               chantName = os.path.basename(chants[i].songname)
+               self.chantsButton = ChantsButton(self, chants[i], chantName, chants[i].home)
+               self.awayChantsList.append(self.chantsButton)
+               self.chantsButton.insert(i+3)
+
+   # clears out chants in the window
+   def clearChantList (self, chantList):
+      if chantList:
+         for chant in chantList:
+            chant.playButton.destroy()
+         chantList.clear()
 
    def adjustVolume (self, value):
       # shoves all of the chants into a single list
@@ -145,17 +146,20 @@ class ChantsManager:
    def setHome (self, filename=None, parsed=None):
       if parsed is not None:
          self.homeChants = parsed
-         if (self.window is not None):
-            self.window.chantsFrame.createChants(home = True)
       else:
          print("No chants received for home team.")
          self.homeChants = None
+         
+      if (self.window is not None):
+         self.window.chantsFrame.createChants(home = True)
+
 
    def setAway (self, filename=None, parsed=None):
       if parsed is not None:
          self.awayChants = parsed
-         if (self.window is not None):
-            self.window.chantsFrame.createChants(away = True)
       else:
          print("No chants received for away team.")
          self.awayChants = None
+         
+      if (self.window is not None):
+         self.window.chantsFrame.createChants(away = True)
