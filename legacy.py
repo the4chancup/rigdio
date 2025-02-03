@@ -257,13 +257,19 @@ class PlayerManager:
          if self.clists[i].randomise:
             f, randomSong = 0, True
             while f < len(self.clists):
-               # if one of them is false,
+               # if one of them is false, do not play a random song
                if not self.clists[f].randomise and self.clists[i].pname == self.clists[f].pname:
                   randomSong = False
                   break
                f += 1
             if randomSong:
-               return random.choice(self.clists)
+               x, randomList = 0, self.clists.copy()
+               while x < len(randomList):
+                  if (self.clists[i].pname != randomList[x].pname):
+                     randomList.pop(x)
+                  else:
+                     x += 1
+               return random.choice(randomList)
          # if conditions were met
          if checked:
             return self.clists[i]
