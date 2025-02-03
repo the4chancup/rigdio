@@ -1,7 +1,7 @@
 from tkinter import *
 from config import settings
 
-import os.path
+import os.path, vlc, threading, time
 
 # chants window class
 class chantswindow(Toplevel):
@@ -37,7 +37,11 @@ class ChantsFrame(Frame):
       self.awayChantsList = list()
       self.createChants(self.chantsManager.homeChants is not None, self.chantsManager.awayChants is not None)
 
+      # chant that is currently being played
       self.activeChant = None
+
+      # used to end the checkChantDone thread early
+      self.endThreadEarly = False
 
    def createChants (self, home = False, away = False):
       if home:
@@ -83,21 +87,49 @@ class ChantsButton:
       self.frame = frame
       self.text = text
       self.home = home
+
+      # how long a chant can be played for until it begins to fade out
+      self.fadeOutTime = 25
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=settings.colours["home" if self.home else "away"])
 
-   #def playChant (self):
-      #if self.frame.activeChant is not None:
-         #print("Denied, chant currently playing")
-      #else:
-         #self.frame.activeChant = self.chant
-         #self.chant.reloadSong()
-         #self.chant.play()
-         #print("Chant now playing")
-
    def playChant (self):
-      self.frame.activeChant = self.chant
-      self.chant.reloadSong()
-      self.chant.play()
+      # if there is already a chant going on, ignore command
+      if self.frame.activeChant is not None:
+         print("Denied, chant currently playing")
+      else:
+         # otherwise, set this chant as the active chant and begin playing
+         self.playButton.configure(relief=SUNKEN)
+         self.frame.activeChant = self.chant
+         self.chantEndCheck = threading.Thread(target=self.checkChantDone)
+         self.chant.reloadSong()
+         self.chant.play()
+         print("Chant now playing")
+         self.chantEndCheck.start()
+
+   # checks when the chant is done or playing too long
+   def checkChantDone (self):
+      self.chantStart = time.time()
+      while self.chantEndCheck is not None:
+         if self.frame.endThreadEarly:
+            self.chantEndCheck = None
+            break
+         
+         if self.chant.song.get_media().get_state() == vlc.State.Ended:
+            self.chantDone()
+            self.chantEndCheck = None
+         elif (time.time() - self.chantStart) > self.fadeOutTime:
+            print("Chant timed out, fade starting")
+            self.chant.fade = True
+            self.chant.fadeOut()
+            self.chantDone()
+            self.chantEndCheck = None
+
+   # clears out the activeChant variable once the chant is over
+   def chantDone (self):
+      if self.frame.activeChant is not None:
+         print("Chant {} concluded.".format(self.text))
+         self.playButton.configure(relief=RAISED)
+         self.frame.activeChant = None
 
    def insert (self, row):
       self.playButton.grid(row=row, column=0 if self.home else 1)

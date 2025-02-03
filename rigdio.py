@@ -89,11 +89,19 @@ class Rigdio (Frame):
       self.chantsManager.window = self.chantswindow
 
    def close(self):
-        # Destroy the chants window and reset the value to None
-        if self.chantswindow is not None:
-            self.chantswindow.destroy()
-            self.chantswindow = None
-            self.chantsManager.window = None
+      if self.chantswindow is not None:
+         # stops and resets the active chant, and ends the thread that checks if the chant is done early
+         activeChant = self.chantswindow.chantsFrame.activeChant
+         if (activeChant is not None):
+            activeChant.song.stop()
+            activeChant.fade = None
+            activeChant = None
+         self.chantswindow.chantsFrame.endThreadEarly = True
+         
+         # Destroy the chants window and reset the value to None
+         self.chantswindow.destroy()
+         self.chantswindow = None
+         self.chantsManager.window = None
 
    def initGameTypeMenu (self):
       gameTypeMenu = Frame(self)
