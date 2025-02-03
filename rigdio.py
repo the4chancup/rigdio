@@ -117,14 +117,15 @@ class Rigdio (Frame):
          self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
          self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
 
-   def replaceChantButton (self, chantsList):
-      self.randomHome.playButton.destroy()
-      self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", True, True)
-      self.randomHome.playButton.grid(row=6, column=0)
-
-      self.randomAway.playButton.destroy()
-      self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", False, True)
-      self.randomAway.playButton.grid(row=6, column=1)
+   def replaceChantButton (self, chantsList, home):
+      if home:
+         self.randomHome.playButton.destroy()
+         self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", True, True)
+         self.randomHome.playButton.grid(row=6, column=0)
+      else:
+         self.randomAway.playButton.destroy()
+         self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", False, True)
+         self.randomAway.playButton.grid(row=6, column=1)
 
    # open and close the chants window
    def chant_window (self):

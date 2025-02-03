@@ -218,7 +218,7 @@ class ChantsManager:
          print("No chants received for home team.")
          
       # replaces the random chant button with the updated list of chants and set the volume back to default
-      self.mainWin.replaceChantButton(self.homeChants)
+      self.mainWin.replaceChantButton(self.homeChants, True)
       self.adjustManagerVolume(self.defaultVolume)
 
       if (self.window is not None):
@@ -231,7 +231,7 @@ class ChantsManager:
          print("No chants received for away team.")
 
       # replaces the random chant button with the updated list of chants and set the volume back to default
-      self.mainWin.replaceChantButton(self.awayChants)
+      self.mainWin.replaceChantButton(self.awayChants, False)
       self.adjustManagerVolume(self.defaultVolume)
       
       if (self.window is not None):
