@@ -44,7 +44,7 @@ class PlayerButtons:
 
       self.dropdownButton = None
       if self.victoryAnthem:
-         self.specialVAs = self.VAOnly(clists, home)
+         self.specialVAs = self.getSpecialList(clists, home)
 
    def showHideVolume (self):
       if self.showVolume:
@@ -66,6 +66,9 @@ class PlayerButtons:
       if self.anthem and self.awayButtonHook != None:
          self.awayButtonHook.clists.pauseSong()
          self.awayButtonHook.playButton.configure(relief=RAISED)
+         # wait until away anthem fades out completely to play home anthem
+         if self.clists.song is None and self.awayButtonHook.clists.lastSong.fade is not None:
+            sleep(2)
       if self.clists.song is None:
          # score points if it's a goalhorn
          if self.pname not in reserved or self.pname == "goal":
@@ -120,6 +123,7 @@ class PlayerButtons:
       self.resetButton.grid(row=row,column=3,sticky=N+S,padx=2,pady=(5,0))
       self.volume.grid(row=row+1,column=0,columnspan=4,sticky=E+W,pady=(0,5))
 
+   # change what song the VA button will play (default/special)
    def changeVA (self, *args):
       if self.selected.get() == "Default":
          self.playButton.config(text="Victory Anthem", command=self.playSong)
@@ -127,13 +131,22 @@ class PlayerButtons:
       else:
          self.playButton.config(text=self.selected.get())
          self.song = self.getSpecial()
-   
-   def VAOnly (self, clists, home):
+
+   # retrieve and return a list of all special VAs
+   def getSpecialList (self, clists, home):
       specialVAs = []
+      specialVALabels = []
       for clist in clists:
          for condition in clist.conditions:
             if condition.type() == 'special':
                specialVAs.append(clist)
+               # if the special VA has a custom label then use it
+               # otherwise just use its filename
+               if condition.tokens()[0] != "":
+                  specialVALabels.append(condition.tokens()[0])
+               else:
+                  specialVALabels.append(os.path.basename(clist.songname))
+               break
       if not specialVAs:
          return specialVAs
       self.dropdownButton = Menubutton(self.frame, text="▼", relief=RAISED, bg=settings.colours["home" if home else "away"])
@@ -141,15 +154,23 @@ class PlayerButtons:
       self.dropdownButton.configure(menu=menu)
       self.selected = StringVar()
       menu.add_radiobutton(label="Default", variable=self.selected, value="Default")
-      for anthem in specialVAs:
-         menu.add_radiobutton(label=os.path.basename(anthem.songname), variable=self.selected, value=os.path.basename(anthem.songname))
+      for i in range(0, len(specialVAs)):
+         menu.add_radiobutton(label=specialVALabels[i], variable=self.selected, value=specialVALabels[i])
       self.selected.trace('w', self.changeVA)
       return specialVAs
-
+   
+   # return the specified song from the list of special VAs
    def getSpecial (self):
       for anthem in self.specialVAs:
-         if self.playButton['text'] == os.path.basename(anthem.songname):
-            return anthem
+         for condition in anthem.conditions:
+            if condition.type() == 'special':
+               if condition.tokens()[0] != "":
+                  if self.playButton['text'] == condition.tokens()[0]:
+                     return anthem
+               else:
+                  if self.playButton['text'] == os.path.basename(anthem.songname):
+                     return anthem
+               break
 
 class Timer:
    def __init__ (self, songui, frame, delay):
@@ -204,15 +225,23 @@ class TeamMenuLegacy (Frame):
       self.buttons = []
       # list of player names for use in buttons
       self.playerNames = [x for x in self.players.keys() if x not in reserved]
+      # sort the player goalhorns alphabetically depending on user's configs
+      if settings.config["alphabetical_sort_goalhorns"]:
+         self.playerNames.sort()
       # tkinter frame containing menu
+      # victory song timer at the end
+      self.buildSongTimer()
       # button for anthem
       self.buildAnthemButton()
       # buttons for victory anthems
       startRow = self.buildVictoryAnthemMenu() + 2
       # buttons for goalhorns
       self.buildGoalhornMenu(startRow)
-      # victory song timer at the end
-      self.buildSongTimer()
+      # show/hide the volume sliders for goalhorns depending on user's configs
+      if not settings.config["show_goalhorn_volume_default"]:
+         for button in self.buttons:
+            button.volume.grid_remove()
+            button.showVolume = False
 
    def buildAnthemButton (self):
       self.anthemButton = PlayerButtons(self, self.players["anthem"], self.home, self.game, "Anthem")
@@ -259,8 +288,9 @@ class TeamMenuLegacy (Frame):
 
    def goNuclear(self):
       for playerButton in self.buttons:
-         playerButton.clists.playSong(playerButton.song)
+         playerButton.playSong()
 
    def stopNuclear(self):
       for playerButton in self.buttons:
+         playerButton.playSong()
          playerButton.clists.resetLastPlayed()

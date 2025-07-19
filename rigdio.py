@@ -1,12 +1,11 @@
 import sys
-from os.path import isfile, join, abspath, splitext   
-import yaml
+from os.path import isfile, join, abspath, splitext
 
 from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
-from config import genCfg, settings
+from config import genConfig, settings
 
 from condition import MatchCondition
 from rigparse import parse as parseLegacy
@@ -19,7 +18,9 @@ import chantswindow as cWin
 
 from logger import startLog
 if __name__ == '__main__':
-   startLog("rigdio.log")
+   # allow/forbid rigdio to write to log depending on user's configs
+   if settings.config["write_to_log"]:
+      startLog("rigdio.log")
    print("rigdio {}".format(version))
 
 class ScoreWidget (Frame):
@@ -94,7 +95,7 @@ class Rigdio (Frame):
       Label(self.middleStuff, text=None).grid(columnspan=2)
       self.chaosHorn = Button(self.middleStuff, text="Chaoshorn", command=self.goNuclear, bg="#ee4b2b")
       self.chaosHorn.grid(columnspan=2)
-      self.killChaos = Button(self.middleStuff, text="Kill Chaoshorn", command=self.cutTheBomb, bg="#2bb4ee")
+      self.killChaos = Button(self.middleStuff, text="Kill Chaoshorn", command=self.stopNuclear, bg="#2bb4ee")
       self.killChaos.grid(columnspan=2)
       Label(self.middleStuff, text=None).grid(columnspan=2)
       # universal playback speed slider
@@ -132,7 +133,7 @@ class Rigdio (Frame):
             self.away.goNuclear()
          self.nuke = True
 
-   def cutTheBomb(self):
+   def stopNuclear(self):
       if self.nuke:
          if self.home is not None:
             self.home.stopNuclear()
@@ -177,7 +178,7 @@ class Rigdio (Frame):
          self.chantsManager.window = None
 
    def mainClose (self, master):
-      self.cutTheBomb()
+      self.stopNuclear()
       self.chantsManager.endThread()
       master.destroy()
 
@@ -191,6 +192,22 @@ class Rigdio (Frame):
       except UnicodeDecodeError as e:
          messagebox.showerror("UnicodeDecodeError on file load.","Are any of your file names using weeb/non-unicode characters? Make sure they are using only unicode characters.")
          raise e
+      except Exception as e:
+         messagebox.showerror("Exception on file load.", e)
+         raise e
+      # retrieve list of song files that could not be found
+      # (song as a string instead of MediaPlayer indicates file is missing)
+      missing = [
+         music.song
+         for player in tmusic.values()
+         for music in player
+         if isinstance(music.song, str)
+      ]
+      # raise exception and display list of missing songs in error window
+      if missing:
+         message = "\n\n".join(missing)
+         messagebox.showerror("FileNotFoundError on file load.", message)
+         raise FileNotFoundError(message)
       # this will only occur for non-rigdj .4ccm files (rigdj adds a second load of the anthems automatically if no victory anthem is provided)
       if "victory" not in tmusic:
          messagebox.showwarning("Warning","No victory anthem information in {}; victory anthem will need to be played manually.".format(f))
@@ -239,9 +256,6 @@ class Rigdio (Frame):
             self.events.setAway(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
 
-   def yamlLoad (self, f, home):
-      pass
-
    def loadFile (self, home = True):
       f = filedialog.askopenfilename(filetypes = (("Rigdio export files", "*.4ccm"),("All files","*.*")))
       if f == "":
@@ -251,8 +265,6 @@ class Rigdio (Frame):
          extension = splitext(f)[1]
          if extension == ".4ccm":
             self.legacyLoad(f,home)
-         elif extension == ".yml":
-            self.yamlLoad(f,home)
          else:
             messagebox.showerror("Error","File type {} not supported.".format(extension))
             return
@@ -289,8 +301,8 @@ def main ():
       return
 
 if __name__ == '__main__':
-   if len(sys.argv) > 1 and sys.argv[1] == "gencfg":
+   if len(sys.argv) > 1 and sys.argv[1] == "genconfig":
       print("Generating config file rigdio.yml")
-      genCfg()
+      genConfig()
    else:
       main()

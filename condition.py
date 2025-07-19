@@ -294,13 +294,17 @@ class MostGoalsCondition (Condition):
 
    def type (self):
       return "mostgoals"
-
+   
 class SpecialCondition (Condition):
-   desc = """Used to allow easy access to special victory anthems on Rigdio.
-(DO NOT SET THIS CONDITION UNDER ANYTHING ELSE OTHER THAN VICTORY ANTHEM, IT WILL BREAK YOUR .4CCM)"""
+   desc = """(DO NOT SET THIS CONDITION UNDER ANYTHING ELSE OTHER THAN VICTORY ANTHEM, IT WILL BREAK YOUR .4CCM)
+
+Used to allow easy access to special victory anthems on Rigdio. Change the label below if you wish to give this a custom name (default is song's filename)."""
 
    def __init__(self, tokens, **kwargs):
-      super().__init__(**kwargs)
+      if len(tokens) > 0:
+         self.label = tokens[0]
+      else:
+         self.label = ""
 
    def check (self, gamestate):
       return False
@@ -309,7 +313,8 @@ class SpecialCondition (Condition):
       return "special"
 
    def tokens (self):
-      return []
+      return [self.label]
+
 
 class PromptCondition (Condition):
    def __init__ (self, dtype, **kwargs):
@@ -661,6 +666,27 @@ class WarcryInstruction (Instruction):
 
    def tokens(self):
       return []
+   
+class UnrandomInstruction (Instruction):
+   desc = """Exclude song from randomised playbacks. Only works on chants."""
+
+   def __init__ (self, tokens, **kwargs):
+      pass
+
+   def append (self, player):
+      player.instructionsStart.append(self)
+
+   def prep (self, player):
+      pass
+
+   def run (self, player):
+      pass
+
+   def type (self):
+      return "unrandom"
+
+   def tokens(self):
+      return []
 
 class EventInstruction (Instruction):
    desc = """DEPRECATED: PLEASE USE EVENT: IN YOUR .YML"""
@@ -699,10 +725,10 @@ conditions = {
    "home" : HomeCondition,
    "once" : OnceCondition,
    "mostgoals" : MostGoalsCondition,
+   "special" : SpecialCondition,
    "every" : EveryCondition,
    "comeback" : ComebackCondition,
    "first" : FirstCondition,
-   "special" : SpecialCondition,
    # meta
    "not" : NotCondition,
    #"or" : OrCondition,
@@ -715,6 +741,7 @@ conditions = {
    "pause" : PauseInstruction,
    "end" : EndInstruction,
    "warcry" : WarcryInstruction,
+   "unrandom" : UnrandomInstruction,
    "event" : EventInstruction # deprecated, for .4ccm use
 }
 
@@ -724,7 +751,8 @@ instructions = {
    "randomise" : RandomiseInstruction,
    "pause" : PauseInstruction,
    "end" : EndInstruction,
-   "warcry" : WarcryInstruction
+   "warcry" : WarcryInstruction,
+   "unrandom" : UnrandomInstruction
 }
 
 def processTokens (tokenStr):

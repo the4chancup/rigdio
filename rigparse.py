@@ -1,8 +1,5 @@
-import os
-import vlc
-
 from os.path import basename, splitext
-from legacy import ConditionList, ConditionPlayer, loadsong
+from legacy import ConditionList, ConditionPlayer
 
 # reserved names
 reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event'])
@@ -64,7 +61,6 @@ def parse (filename, load = True, home = True):
             data=data[2:],
             songname=filename,
             home=home,
-            song=loadsong(filename),
             type=songtype)
       # otherwise, ConditionList uses less memory and doesn't make libVLC calls
       else:
@@ -74,6 +70,22 @@ def parse (filename, load = True, home = True):
             data=data[2:],
             songname=filename,
             home=home)
+         # when rigdj loads a .4ccm where a condition's value has spaces (special, mostgoals),
+         # it will remove the accompanying square brackets, and unless the user corrects it
+         # before saving, it breaks the condition's value
+         # the for loop below simply adds those square brackets back in again
+         # this is a very messy way to handle this very specific problem
+         # but it is also the simplest
+         for condition in clist.conditions:
+            if condition.type() == "special":
+               if condition.tokens()[0] != "" and " " in condition.tokens()[0]:
+                  condition.label = "[{}]".format(condition.tokens()[0])
+                  break
+            else:
+               if condition.type() == "mostgoals":
+                  if condition.tokens()[0] != "" and " " in condition.tokens()[0]:
+                     condition.specified = "[{}]".format(condition.tokens()[0])
+                     break
       # add this condition list to the output list
       if clist.event is None:
          if player not in players:

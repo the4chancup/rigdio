@@ -96,6 +96,8 @@ class ConditionEditor (Frame):
          "pause" : PauseInstructionEditor,
          "end" : EndInstructionEditor,
          "warcry" : lambda master,cond: EmptyConditionEditor(master,cond,WarcryInstruction),
+         "unrandom" : lambda master,cond: EmptyConditionEditor(master,cond,UnrandomInstruction),
+         "special" : SpecialConditionEditor,
          "event" : EventInstructionEditor
       }
       return editors[ctype]
@@ -325,6 +327,25 @@ class MostGoalsConditionEditor (ConditionEditor):
       else:
          return super().tokens()
       
+class SpecialConditionEditor (ConditionEditor):
+   def __init__(self, master, cond):
+      super().__init__(master, cond, SpecialCondition)
+
+   def default (self):
+      return []
+
+   def build (self, tokens):
+      self.fields.append(StringVar())
+      if len(tokens) > 0:
+         self.fields[0].set(tokens[0])
+      Label(self, text="Label").grid(row=0,column=0)
+      Entry(self, textvariable=self.fields[0]).grid(row=0,column=1)
+
+   def tokens(self):
+      if self.fields[0].get() == "":
+         return []
+      else:
+         return super().tokens()
 
 class MetaConditionEditor (ConditionEditor):
    def __init__ (self, master, cond, conditionType):
@@ -515,6 +536,9 @@ class ConditionDialog (Dialog):
       selectorFrame = Frame(frame)
       Label(selectorFrame, text="Condition Type", font="-weight bold").pack(side=LEFT)
       ctypes = list(conditions.keys())
+      # remove conditions/instructions that are not meant for general use from the menu first
+      ctypes.remove("special")
+      ctypes.remove("unrandom")
       ctypes.sort()
       selector = OptionMenu(selectorFrame, self.conditionType, *ctypes, command=self.changeConditionType)
       setMaxWidth(ctypes,selector)

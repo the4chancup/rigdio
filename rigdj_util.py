@@ -1,5 +1,6 @@
 from tkinter import *
 import tkinter.font
+import platform
 # thanks to https://stackoverflow.com/a/21831742 for this method
 def setMaxWidth(stringList, element):
    """
@@ -85,3 +86,38 @@ class ScrollingListbox (Listbox):
    def grid (self, *args, **kwargs):
       # as above
       self.frame.grid(*args, **kwargs)
+
+class Scrollable (Frame):
+   """
+       Make a frame scrollable with scrollbar on the right.
+       After adding or removing widgets to the scrollable frame,
+       call the update() method to refresh the scrollable area.
+   """
+   def __init__(self, frame):
+      self.scrollbar = Scrollbar(frame)
+      #self.scrollbar.pack(side=RIGHT, fill=Y)
+      self.scrollbar.grid(row=2, column=2, columnspan=999, sticky=NS)
+
+      self.canvas = Canvas(frame, yscrollcommand=self.scrollbar.set)
+      #self.canvas.pack(side=LEFT, fill=BOTH)
+      self.canvas.grid(row=1, column=1, sticky=NW)
+
+      self.scrollbar.config(command=self.canvas.yview)
+
+      self.canvas.bind('<Configure>', self.__fill_canvas)
+
+      Frame.__init__(self, frame)
+
+      self.windows_item = self.canvas.create_window(0, 0, window=self, anchor=NW)
+
+   def __fill_canvas(self, event):
+      "Enlarge the windows item to the canvas width"
+      
+      canvas_width = event.width
+      self.canvas.itemconfig(self.windows_item, width = canvas_width)
+
+   def update(self):
+      "Update the canvas and the scrollregion"
+      
+      self.update_idletasks()
+      self.canvas.config(scrollregion=self.canvas.bbox(self.windows_item))

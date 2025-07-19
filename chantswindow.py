@@ -33,7 +33,11 @@ class ChantsFrame(Frame):
       Label(self, text=None).grid(columnspan=2)
 
       # chant timer checkbox, for if the user doesn't want to use it
-      self.timerCheckbox = IntVar(value=1)
+      # set the checkbox default state depending on user's configs
+      if settings.config["chant_timer_enabled_default"]:
+         self.timerCheckbox = IntVar(value=1)
+      else:
+         self.timerCheckbox = IntVar(value=0)
       self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.timerCheckbox, command=self.enableTimer)
       self.enableTimerCheckbox.grid(columnspan=2)
 
@@ -66,12 +70,16 @@ class ChantsFrame(Frame):
          if self.chantsManager.homeChants:
             chants = self.chantsManager.homeChants
             # a chant button that plays a random chant when it's pressed
-            self.randomChant = ChantsButton(self, self.chantsManager, chants, "Random", True, True)
+            self.randomChant = ChantsButton(self, self.chantsManager, self.chantsManager.homeRandom, "Random", True, True)
             self.randomChant.insert(8)
             self.homeChantsList.append(self.randomChant)
 
             for i in range(len(chants)):
+               # set name on button to only show the original chant name exclusing the extension
                chantName = os.path.basename(chants[i].songname)
+               chantName = os.path.splitext(chantName)[0]
+               if (chantName.endswith("_normalized")):
+                  chantName = chantName[:-11]
                self.chantsButton = ChantsButton(self, self.chantsManager, chants[i], chantName, chants[i].home)
                self.homeChantsList.append(self.chantsButton)
                self.chantsButton.insert(i+9)
@@ -81,12 +89,16 @@ class ChantsFrame(Frame):
          if self.chantsManager.awayChants:
             chants = self.chantsManager.awayChants
             # a chant button that plays a random chant when it's pressed
-            self.randomChant = ChantsButton(self, self.chantsManager, chants, "Random", False, True)
+            self.randomChant = ChantsButton(self, self.chantsManager, self.chantsManager.awayRandom, "Random", False, True)
             self.randomChant.insert(8)
             self.awayChantsList.append(self.randomChant)
 
             for i in range(len(chants)):
+               # set name on button to only show the original chant name exclusing the extension
                chantName = os.path.basename(chants[i].songname)
+               chantName = os.path.splitext(chantName)[0]
+               if (chantName.endswith("_normalized")):
+                  chantName = chantName[:-11]
                self.chantsButton = ChantsButton(self, self.chantsManager, chants[i], chantName, chants[i].home)
                self.awayChantsList.append(self.chantsButton)
                self.chantsButton.insert(i+9)
@@ -112,7 +124,7 @@ class ChantsFrame(Frame):
 # creates and manages the chant buttons
 class ChantsButton:
    def __init__ (self, frame, chantsManager, chant, text, home, shuffle = False):
-      # used to randomize the chant by having the argument take in the list of chants instead
+      # used to randomise the chant by having the argument take in the list of chants instead
       self.chantList = chant if random and isinstance(chant, list) else list()
       self.frame = frame
       self.chantsManager = chantsManager
@@ -122,6 +134,8 @@ class ChantsButton:
       self.shuffle = shuffle
       if self.shuffle:
          self.shuffledList = self.chantList.copy()
+         # there's been complaints that the random button isn't that random, let's see if this helps
+         random.shuffle(self.shuffledList)
          random.shuffle(self.shuffledList)
 
       # how long a chant can be played for until it begins to fade out
@@ -140,7 +154,9 @@ class ChantsButton:
          if self.shuffle:
             self.chant = self.shuffledList.pop(0)
             if not self.shuffledList:
+               print("List copied and shuffled.")
                self.shuffledList = self.chantList.copy()
+               random.shuffle(self.shuffledList)
                random.shuffle(self.shuffledList)
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
@@ -162,7 +178,8 @@ class ChantsButton:
          if self.chantsManager.endThreadEarly:
             print("Chant ended early.")
             # stops the song, resets the end thread bool, and enables the chant timer (bool reset and chant timer enable is for when new chants are loaded)
-            self.chant.song.stop()
+            self.chant.fade = True
+            self.chant.fadeOut()
             self.chantsManager.endThreadEarly = False
             if self.frame.winfo_exists():
                self.playButton.configure(relief=RAISED)
@@ -202,6 +219,9 @@ class ChantsManager:
       # stores chant information
       self.homeChants, self.awayChants = list(), list()
 
+      # stores chant list for random button to play
+      self.homeRandom, self.awayRandom = list(), list()
+
       # default settings for chant timer and volume
       self.defaultTimer = 30
       self.defaultVolume = 80
@@ -218,12 +238,25 @@ class ChantsManager:
    def setHome (self, filename=None, parsed=None):
       if parsed is not None:
          self.homeChants = parsed
+         self.homeRandom = self.homeChants.copy()
+         # remove any chants with the 'unrandom' instruction from the random list
+         index = 0
+         while index < len(self.homeRandom):
+            if any(item.type() == 'unrandom' for item in self.homeRandom[index].instructions):
+               self.homeRandom.pop(index)
+            else:
+               index += 1
+
+         # sort the team chants alphabetically depending on user's configs
+         if settings.config["alphabetical_sort_chants"]:
+            self.homeChants.sort(key=lambda x : x.__str__())
       else:
          print("No chants received for home team.")
          self.homeChants.clear()
+         self.homeRandom.clear()
          
       # replaces the random chant button with the updated list of chants and set the volume back to default
-      self.mainWin.replaceChantButton(self.homeChants, True)
+      self.mainWin.replaceChantButton(self.homeRandom, True)
       self.adjustManagerVolume(self.defaultVolume)
 
       if (self.window is not None):
@@ -232,12 +265,25 @@ class ChantsManager:
    def setAway (self, filename=None, parsed=None):
       if parsed is not None:
          self.awayChants = parsed
+         self.awayRandom = self.awayChants.copy()
+         # remove any chants with the 'unrandom' instruction from the random list
+         index = 0
+         while index < len(self.awayRandom):
+            if any(item.type() == 'unrandom' for item in self.awayRandom[index].instructions):
+               self.awayRandom.pop(index)
+            else:
+               index += 1
+         
+         # sort the team chants alphabetically depending on user's configs
+         if settings.config["alphabetical_sort_chants"]:
+            self.awayChants.sort(key=lambda x : x.__str__())
       else:
          print("No chants received for away team.")
          self.awayChants.clear()
+         self.awayRandom.clear()
 
       # replaces the random chant button with the updated list of chants and set the volume back to default
-      self.mainWin.replaceChantButton(self.awayChants, False)
+      self.mainWin.replaceChantButton(self.awayRandom, False)
       self.adjustManagerVolume(self.defaultVolume)
       
       if (self.window is not None):

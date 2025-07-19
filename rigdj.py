@@ -1,21 +1,24 @@
 from version import rigdj_version as version
-from logger import startLog
-if __name__ == '__main__':
-   startLog("rigdj.log")
-   print("rigDJ {}".format(version))
 
 from io import StringIO
 
 from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
-from tkinter.simpledialog import Dialog
 
+from config import settings
 from condition import *
 from conditioneditor import ConditionDialog
 
 from rigdj_util import *
 from rigparse import parse, reserved
+
+from logger import startLog
+if __name__ == '__main__':
+   # allow/forbid rigdj to write to log depending on user's configs
+   if settings.config["write_to_log"]:
+      startLog("rigdj.log")
+   print("rigDJ {}".format(version))
 
 specialNames = set(["Goalhorn", "Anthem", "Victory Anthem", "chant"])
 
@@ -44,9 +47,6 @@ class ConditionButton (Button):
       super().__init__(self.songrow.master, command=self.edit, text=txt, **kwargs)
 
    def edit (self):
-      # disables any possible editing of special conditions
-      if type(self.cond) is SpecialCondition:
-         return
       # get a condition from a ConditionDialog
       temp = ConditionDialog(self.master,self.cond,self.cond==None).condition
       # if None, was a NewCondition and Cancel was pressed
@@ -63,9 +63,38 @@ class ConditionButton (Button):
             # store temp as this button's new condition, in case update fails for some reason
             self.cond = temp
          # check and modify status of randomise checkbox once conditions are changed
-         self.master.setRandomise()
+         if isinstance(self.master.master.songEditor, SongEditor):
+            self.master.master.songEditor.setRandomise()
+         else:
+            self.master.setRandomise()
          # we've added or changed a condition, so update row and trigger callbacks
          self.songrow.update(True)
+
+class UnrandomButton (Checkbutton):
+   """
+      Checkbutton widget for chants that includes/excludes them from random playbacks.
+
+      To be placed inside a SongRow, specifically chants only.
+   """
+   def __init__(self, master, songrow, **kwargs):
+      self.master = master
+      self.songrow = songrow
+      self.randomChantVar = IntVar()
+      if (any(type(cond) is UnrandomInstruction for cond in songrow)):
+         self.randomChantVar.set(1)
+      self.button = super().__init__(self.master, text="Exclude from Random", variable=self.randomChantVar, command=self.edit, **kwargs)
+
+   def edit(self):
+      if self.randomChantVar.get() == 1:
+         self.songrow.append(UnrandomInstruction(None))
+      else:
+         index = 0
+         while index < len(self.songrow.clist):
+            if type(self.songrow[index]) is UnrandomInstruction:
+               self.songrow.pop(index)
+            else:
+               index += 1
+      self.songrow.update(True)
 
 class SongRow:
    def __init__ (self, master, songed, row, clist):
@@ -156,12 +185,16 @@ class SongRow:
          self.baseElements[4]['state'] = 'disabled'
       if self.row == self.songed.count():
          self.baseElements[2]['state'] = 'disabled'
-
-      # construct condition buttons
-      self.conditionButtons = [ConditionButton(self,index) for index in range(len(self.clist))]
-      # if new conditions are not allowed, disable the 'Add Condition' button
-      if self.checkNewConditions():
-         self.conditionButtons.append(ConditionButton(self,len(self)))
+      
+      if self.master.master.current == 'chant':
+         # for chants, build only a check button to include/exclude from random playback
+         self.conditionButtons = [UnrandomButton(self.master, self)]
+      else:
+         # construct condition buttons
+         self.conditionButtons = [ConditionButton(self,index) for index in range(len(self.clist))]
+         # if new conditions are not allowed, disable the 'Add Condition' button
+         if self.checkNewConditions():
+            self.conditionButtons.append(ConditionButton(self,len(self)))
       # construct complete list of elements
       self.elements = self.baseElements + self.conditionButtons
       # draw elements
@@ -169,12 +202,9 @@ class SongRow:
          self.elements[index].grid(row=self.row,column=index,sticky=N+E+W+S,padx=2,pady=1)
       if callback:
          self.songed.callbacks()
+         self.songed.after_idle(self.songed.updateFrameSize)
 
    def checkNewConditions (self):
-      # if this is the chants player, prevent new conditions from being added
-      if self.master.master.current == 'chant':
-         return False
-
       # if the song has the randomise instruction or special condition, prevent new conditions from being added
       for instruction in self.clist.instructions:
          if instruction.type() == 'randomise':
@@ -228,18 +258,20 @@ class SongRow:
       return len(self.clist)
 
 class SongEditor (Frame):
-   def __init__ (self, master, clists = []):
+   def __init__ (self, master, canvas, clists = []):
       """
          Constructor.
       """
       # frame init
-      super().__init__(master)
+      super().__init__(canvas)
       # songrows is empty to start
       self.songrows = []
       self.newSongButton = Button(self,text="Add Song",command=self.addSong)
       self.registered = []
       # master reference to access checkbox
       self.master = master
+      # canvas reference to canvas that contains this frame
+      self.canvas = canvas
       # used to check if button has been randomised
       self.buttonRandomised = False
       # prepare widgets needed for the special VA section
@@ -249,6 +281,9 @@ class SongEditor (Frame):
       # necessary callbacks: update previewer and update own information, whenever stuff changes
       self.register(master.updateCurrent)
       self.register(master.editor.updateEditor)
+      # bind scrollwheel to work only when mouse is in editor frame
+      self.bind('<Enter>', self.bound)
+      self.bind('<Leave>', self.unbound)
 
    def load (self, clists):
       """
@@ -343,10 +378,17 @@ class SongEditor (Frame):
       # invoke callbacks if needed
       if callback:
          self.callbacks()
+      # only update scroll region and frame width after all other tasks have finished
+      self.after_idle(self.updateFrameSize)
+
+   # set scrolling region to length of frame and adjust frame width to fit everything
+   def updateFrameSize(self):
+      self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+      self.canvas.config(width=self.winfo_width())
 
    # updates songeditor to include special VA section
    def updateSpecial (self):
-      self.specialFrame.grid(row=len(self.songrows)+3,column=1,rowspan=3,sticky=NE+SW,padx=5,pady=5)
+      self.specialFrame.grid(row=len(self.songrows)+3,column=1,rowspan=3,sticky=NW,padx=5,pady=5)
       self.specialVisible = True
       # load special VA section title
       self.specialLabel.grid_forget()
@@ -389,12 +431,12 @@ class SongEditor (Frame):
             i += 1
       # if songs are randomised, check the randomise button checkbox and set the variable assigned to it to 1
       if self.buttonRandomised:
-         self.master.randomVar.set(1)
+         self.master.randomHornVar.set(1)
          self.master.randomiseButton.select()
          return True
       # otherwise, uncheck it and set the variable to 0
       else:
-         self.master.randomVar.set(0)
+         self.master.randomHornVar.set(0)
          self.master.randomiseButton.deselect()
          return False
 
@@ -439,6 +481,28 @@ class SongEditor (Frame):
    def register (self, callback):
       self.registered.append(callback)
 
+   # event handlers so that scrollwheel works for scrollbar
+   def bound(self, event):
+      """
+         Binds mousewheel to scroll through editor frame.
+      """
+      self.canvas.bind_all("<MouseWheel>", self.scroll)
+
+   def unbound(self, event):
+      """
+         Unbinds the mousewheel scroll.
+      """
+      self.canvas.unbind_all("<MouseWheel>")
+
+   def scroll(self, event):
+      """
+         Scrolls frame up/down according to user's scroll input direction. (num is used for Linux while delta is used Windows/Mac)
+      """
+      if event.num == 5 or event.delta == -120:
+         self.canvas.yview_scroll(1, "units")
+      elif event.num == 4 or event.delta == 120:
+         self.canvas.yview_scroll(-1, "units")
+
 class PlayerSelectFrame (Frame):
    def __init__ (self, editor, command = None, players = []):
       super().__init__(editor)
@@ -458,7 +522,7 @@ class PlayerSelectFrame (Frame):
       self.playerMenu.insert(END,"Victory Anthem")
       self.playerMenu.insert(END,"Goalhorn")
       self.playerMenu.insert(END,"chant")
-      self.playerMenu.grid(row=2,column=0,padx=5,pady=5,sticky=N+S)
+      self.playerMenu.grid(row=2,column=0,padx=5,pady=5,sticky=N)
       self.current = None
       self.editor = editor
       # delete player
@@ -469,13 +533,24 @@ class PlayerSelectFrame (Frame):
       self.deleteButton = Button(buttonFrame, text="Delete Selected", command=self.deletePlayer)
       self.deleteButton.pack(fill=X,pady=2)
       # randomise horns checkbox
-      self.randomVar = IntVar()
-      self.randomiseButton = Checkbutton(buttonFrame, text="Randomise Horns", variable=self.randomVar, command=self.randomiseHorns)
+      self.randomHornVar = IntVar()
+      self.randomiseButton = Checkbutton(buttonFrame, text="Randomise Horns", variable=self.randomHornVar, command=self.randomiseHorns)
       self.randomiseButton.pack(fill=X,pady=2)
       buttonFrame.grid(row=0,column=0,padx=5,pady=5)
+
       # create song editor
-      self.songEditor = SongEditor(self)
-      self.songEditor.grid(row=2,column=1,rowspan=3,sticky=NE+SW,padx=5,pady=5)
+      self.canvas = Canvas(self)
+      scrollbar = Scrollbar(self, orient="vertical", command=self.canvas.yview)
+      self.canvas.configure(height=300, yscrollcommand=scrollbar.set)
+
+      self.songEditor = SongEditor(self, self.canvas)
+
+      self.canvas.create_window((0, 0), window=self.songEditor, anchor="nw")
+      scrollbar.grid(row=2,column=2,rowspan=1,sticky=NS)
+      self.canvas.grid(row=2,column=1,rowspan=3,sticky=NSEW,padx=5,pady=5)
+      self.grid_rowconfigure(2, weight=1, uniform="equal")
+      self.grid_columnconfigure(1, weight=1, uniform="equal")
+
       # add any players passed to constructor
       self.updateList(players)
       # bind callback to list
@@ -602,7 +677,7 @@ class PlayerSelectFrame (Frame):
          which has Rigdio randomly select a horn from the list instead of following priority. Horns which have the warcry or special instruction do not have the randomise instruction applied to them.
          When checked off, resets all horns to have no condition.
       """
-      if self.randomVar.get() == 1:
+      if self.randomHornVar.get() == 1:
          for row in self.songEditor.songrows:
             noAppend = False
             for cond in row.clist:

@@ -1,4 +1,6 @@
 from condition import *
+from os.path import splitext
+from glob import glob
 import random
 
 class ConditionList:
@@ -110,19 +112,10 @@ class ConditionList:
          output["instructions"].append(item.toYML())
       return output
 
-def loadsong(filename):
-   print("Attempting to load "+filename)
-   filename = abspath(filename)
-   if not ( isfile(filename) ):  
-      raise Exception(filename+" not found.")
-   # no-video to prevent any video tracks from playing
-   source = vlc.MediaPlayer("file:///"+filename, ":no-video")
-   return source
-
 class ConditionPlayer (ConditionList):
-   def __init__ (self, pname, tname, data, songname, home, song, type = "goalhorn"):
+   def __init__ (self, pname, tname, data, songname, home, type = "goalhorn"):
       ConditionList.__init__(self,pname,tname,data,songname,home,False)
-      self.song = song
+      self.song = self.loadsong(songname)
       self.type = type
       self.isGoalhorn = type=="goalhorn"
       self.fade = None
@@ -135,7 +128,7 @@ class ConditionPlayer (ConditionList):
       self.instructionsStart = []
       self.instructionsPause = []
       self.instructionsEnd = []
-      self.maxVolume = 100
+      self.maxVolume = 80
       # repetition settings; may be changed by instructions
       norepeat = set(["victory","chant"])
       self.repeat = (pname not in norepeat)
@@ -143,7 +136,7 @@ class ConditionPlayer (ConditionList):
       self.appendInstructions()
       self.instruct()
       # hard override for events to stop them repeating
-      if self.repeat and self.event is None:
+      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer):
          self.song.get_media().add_options("input-repeat=-1")
 
    def appendInstructions (self):
@@ -156,9 +149,28 @@ class ConditionPlayer (ConditionList):
          print("Preparing {} instruction".format(instruction))
          instruction.prep(self)
 
+   def loadsong(self, filename):
+      print("Attempting to load "+filename)
+      fullpath = abspath(filename)
+
+      # check to see if there's a normalized version of the song file first
+      normalized = glob(splitext(fullpath)[0] + "_normalized.*")
+      if normalized:
+         print("Normalized version of " + fullpath + " found")
+         self.songname = basename(normalized[0])
+         fullpath = normalized[0]
+
+      # if song cannot be found, set return the error message instead of the MediaPlayer
+      # reason for doing this is to have rigdio check for all missing files
+      # and list them all out instead of just one at a time
+      if not isfile(fullpath):
+         return fullpath + " not found."
+      # no-video to prevent any video tracks from playing
+      return vlc.MediaPlayer("file:///"+fullpath, ":no-video")
+
    def reloadSong (self):
       self.firstPlay = True
-      self.song = loadsong(self.songname)
+      self.song = self.loadsong(self.songname)
       self.instruct()
 
    def play (self):
