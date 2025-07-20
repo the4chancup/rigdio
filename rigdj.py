@@ -343,7 +343,7 @@ class SongEditor (Frame):
          Add a new empty song row to the special VA section.
       """
       song = SongRow(self.specialFrame,self,len(self.songrows)+1,ConditionList())
-      song.append(SpecialCondition(None))
+      song.append(SpecialCondition(""))
       self.songrows.append(song)
       self.update(len(self.songrows)==1)
 
