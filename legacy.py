@@ -157,7 +157,7 @@ class ConditionPlayer (ConditionList):
       normalized = glob(splitext(fullpath)[0] + "_normalized.*")
       if normalized:
          print("Normalized version of " + fullpath + " found")
-         self.songname = basename(normalized[0])
+         self.songname = normalized[0]
          fullpath = normalized[0]
 
       # if song cannot be found, set return the error message instead of the MediaPlayer
