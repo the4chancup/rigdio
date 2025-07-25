@@ -1,6 +1,7 @@
 import yaml
 from logger import startLog
 from tkinter import *
+from tkinter import messagebox
 from os import startfile
 
 defaults = dict(
