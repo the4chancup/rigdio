@@ -164,7 +164,7 @@ class ConditionPlayer (ConditionList):
       # reason for doing this is to have rigdio check for all missing files
       # and list them all out instead of just one at a time
       if not isfile(fullpath):
-         return fullpath + " not found."
+         return basename(fullpath) + " not found."
       # no-video to prevent any video tracks from playing
       return vlc.MediaPlayer("file:///"+fullpath, ":no-video")
 
