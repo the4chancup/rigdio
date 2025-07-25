@@ -128,7 +128,7 @@ class Riglevel (Frame):
          name, ext = os.path.splitext(song)
          ext = ext[1:]
          try:
-            sound = AudioSegment.from_file(song, format=ext)
+            sound = AudioSegment.from_file(song, format='ogg' if ext == 'opus' else ext)
          except Exception:
             # if song file could not be read, skip it while noting down the name
             print("Pydub failed to read {}. This is highly likely due to the " \
@@ -153,10 +153,33 @@ class Riglevel (Frame):
             messagebox.showwarning("Input Error", message)
             self.thread = None
             return
+         # Ceiling of 0 - no clipping
+         peak_ceiling = 0.0
+         # Calculate the gain needed to reach the target loudness (RMS)
+         loudness_gain = target - sound.dBFS
+         # Calculate the maximum gain allowed to avoid clipping the peak
+         headroom_gain = peak_ceiling - sound.max_dBFS
+         # Use the smaller of the two gains, if loudness_gain would cause clipping, use headroom_gain instead.
+         final_gain = min(loudness_gain, headroom_gain)
+        
+         print(f"  Target: {target}dBFS, Loudness: {sound.dBFS:.2f}dBFS, Peak: {sound.max_dBFS:.2f}dBFS")
+         if final_gain < loudness_gain:
+            print(f"  Applying {final_gain:.2f}dB gain (LIMITED by peak volume!)")
+         else:
+            print(f"  Applying {final_gain:.2f}dB gain")
+
+         # Check if any change is needed at all
+         if abs(final_gain) < 0.2:
+            print("  Gain is <±0.2 dB. Renaming file instead of re-compressing.")
+            new_name = name + "_normalized." + ext
+            os.rename(song, new_name)
+            
+            count += 1
+            self.updateProgress(count, max)
+            continue
+
          # normalize song to specified dBFS level
-         change = target - sound.dBFS
-         print("   File has average loudness of {} dBFS, target is {} dBFS; applying {} dBFS gain.".format(sound.dBFS, target, change))
-         output = sound.apply_gain(change)
+         output = sound.apply_gain(final_gain)
 
          # export normalized song
          outfile = name + "_normalized.opus"
