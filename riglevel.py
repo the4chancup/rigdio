@@ -52,7 +52,7 @@ class Riglevel (Frame):
       self.progressbar = ttk.Progressbar(self, variable=self.progress, length=250)
       self.progressbar.grid(row=6, columnspan=2, pady=5)
 
-      self.audioFileTypes = [".mp3", ".ogg", ".flac", ".m4a", ".wav"]
+      self.audioFileTypes = [".mp3", ".ogg", ".opus", ".flac", ".m4a", ".wav"]
       self.validArr = []
       self.thread = None
 
