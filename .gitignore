@@ -1,0 +1,5 @@
+# Ignore Python build directories
+__pycache__/
+
+# Ignore log files
+*.log
