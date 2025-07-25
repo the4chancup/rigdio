@@ -22,7 +22,7 @@ defaults = dict(
    ),
    gameMinute=6.67,
    level=dict(
-      target = -3.0
+      target = -1.0
    ),
    match="Group"
 )
