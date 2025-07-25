@@ -43,14 +43,17 @@ class Riglevel (Frame):
       self.countLbl = Label(self, text="0 out of 0 songs to normalize")
       self.countLbl.grid(row=4, columnspan=2, pady=2)
 
-      #normalizeBtn = Button(self, text="Normalize music", command=self.normalizeMusic, bg="#eae0fc")
       normalizeBtn = Button(self, text="Normalize music", command=self.startNormalizeThread, bg="#eae0fc")
       normalizeBtn.grid(row=5, columnspan=2, pady=2)
+
+      # tip text
+      Label(self, text="Tip: This normalizes music by its average loudness, not its peak.\n" \
+      "It's highly recommended to keep the target level between -20 and -10.").grid(row=6, columnspan=2)
 
       # to show progress of normalization process
       self.progress = IntVar()
       self.progressbar = ttk.Progressbar(self, variable=self.progress, length=250)
-      self.progressbar.grid(row=6, columnspan=2, pady=5)
+      self.progressbar.grid(row=7, columnspan=2, pady=5)
 
       self.audioFileTypes = [".mp3", ".ogg", ".opus", ".flac", ".m4a", ".wav"]
       self.validArr = []
@@ -151,8 +154,8 @@ class Riglevel (Frame):
             self.thread = None
             return
          # normalize song to specified dBFS level
-         change = target - sound.max_dBFS
-         print("   File has peak of {} dBFS, target is {} dBFS; applying {} dBFS gain.".format(sound.max_dBFS, target, change))
+         change = target - sound.dBFS
+         print("   File has average loudness of {} dBFS, target is {} dBFS; applying {} dBFS gain.".format(sound.dBFS, target, change))
          output = sound.apply_gain(change)
 
          # export normalized song
