@@ -1,5 +1,10 @@
-# Ignore Python build directories
+# Ignore Python compile directory
 __pycache__/
+
+# Ignore build directories and files
+build/
+dist/
+*.spec
 
 # Ignore log files
 *.log
