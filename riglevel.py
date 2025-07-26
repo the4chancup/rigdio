@@ -128,7 +128,9 @@ class Riglevel (Frame):
          name, ext = os.path.splitext(song)
          ext = ext[1:]
          try:
-            sound = AudioSegment.from_file(song, format=ext)
+            # pydub can't seem to open opus files despite ffmpeg supporting it
+            # tricking it into reading it as an ogg file works
+            sound = AudioSegment.from_file(song, format="ogg" if ext == "opus" else ext)
          except Exception:
             # if song file could not be read, skip it while noting down the name
             print("Pydub failed to read {}. This is highly likely due to the " \
@@ -153,9 +155,13 @@ class Riglevel (Frame):
             messagebox.showwarning("Input Error", message)
             self.thread = None
             return
+         
          # normalize song to specified dBFS level
          change = target - sound.dBFS
-         print("   File has average loudness of {} dBFS, target is {} dBFS; applying {} dBFS gain.".format(sound.dBFS, target, change))
+         # take into account the music's peak to avoid it clipping
+         change = min(change, 0.0 - sound.max_dBFS)
+         print(f"   File has average loudness of {sound.dBFS} dBFS and peak of {sound.max_dBFS} " \
+         f"dBFS, target is {target} dBFS; applying {change} dBFS gain while avoiding peak clipping.")
          output = sound.apply_gain(change)
 
          # export normalized song
