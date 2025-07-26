@@ -67,8 +67,9 @@ class PlayerButtons:
          self.awayButtonHook.clists.pauseSong()
          self.awayButtonHook.playButton.configure(relief=RAISED)
          # wait until away anthem fades out completely to play home anthem
-         if self.clists.song is None and self.awayButtonHook.clists.lastSong.fade is not None:
-            sleep(2)
+         if self.clists.song is None and self.awayButtonHook.clists.lastSong is not None:
+            if self.awayButtonHook.clists.lastSong.fade is not None:
+               sleep(2)
       if self.clists.song is None:
          # score points if it's a goalhorn
          if self.pname not in reserved or self.pname == "goal":
