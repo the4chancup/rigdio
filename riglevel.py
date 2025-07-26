@@ -160,8 +160,8 @@ class Riglevel (Frame):
          change = target - sound.dBFS
          # take into account the music's peak to avoid it clipping
          change = min(change, 0.0 - sound.max_dBFS)
-         print(f"   File has average loudness of {sound.dBFS} dBFS and peak of {sound.max_dBFS} " \
-         f"dBFS, target is {target} dBFS; applying {change} dBFS gain while avoiding peak clipping.")
+         print(f"   File has average loudness of {sound.dBFS:.3f} dBFS and peak of {sound.max_dBFS:.3f} " \
+         f"dBFS, target is {target} dBFS; applying {change:.3f} dBFS gain while avoiding peak clipping.")
          output = sound.apply_gain(change)
 
          # export normalized song
