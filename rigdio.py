@@ -5,7 +5,7 @@ from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
-from config import genConfig, settings
+from config import genConfig, openConfig, settings
 
 from condition import MatchCondition
 from rigparse import parse as parseLegacy
@@ -15,12 +15,16 @@ from version import rigdio_version as version
 from rigdj_util import setMaxWidth
 from event import EventController
 import chantswindow as cWin
+import legacy
 
 from logger import startLog
 if __name__ == '__main__':
    # allow/forbid rigdio to write to log depending on user's configs
    if settings.config["write_to_log"]:
       startLog("rigdio.log")
+   # create a title.log file that will contain the current song's title/filename
+   if settings.config["write_song_title_log"] > 0:
+      open("title.log", 'w').close()
    print("rigdio {}".format(version))
 
 class ScoreWidget (Frame):
@@ -169,9 +173,6 @@ class Rigdio (Frame):
 
    def close (self):
       if self.chantswindow is not None:
-         # ends the ongoing chant thread early and resets setting values back to default
-         self.chantsManager.endThread()
-         self.chantsManager.resetValues()
          # destroys the chants window and resets the value to None
          self.chantswindow.destroy()
          self.chantswindow = None
@@ -179,7 +180,9 @@ class Rigdio (Frame):
 
    def mainClose (self, master):
       self.stopNuclear()
+      # kill any possible ongoing other threads first before closing
       self.chantsManager.endThread()
+      legacy.titleCheck = False
       master.destroy()
 
    def legacyLoad (self, f, home):
@@ -295,8 +298,14 @@ def main ():
    rigdio = Rigdio(master)
    rigdio.pack()
    master.protocol('WM_DELETE_WINDOW', lambda: rigdio.mainClose(master))
+   # if config file was generated, show config prompt window before letting Rigdio run
+   if settings.fileGen:
+      openConfig()
    try:
       mainloop()
+   except RuntimeError as e:
+      print("Error occurred: {}".format(e))
+      return
    except KeyboardInterrupt:
       return
 

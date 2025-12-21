@@ -1,12 +1,13 @@
 from version import riglevel_version as version
 from tkinter import *
 import tkinter.messagebox as messagebox
-from config import settings
+from config import settings, openConfig
 
 import os
 from threading import Thread
 from glob import glob
 from pydub import AudioSegment
+from pydub.utils import mediainfo
 
 from tkinter import ttk
 import tkinter.filedialog as filedialog
@@ -24,36 +25,46 @@ class Riglevel (Frame):
       Label(self, text="Use this program to normalize music sound levels.").grid(columnspan=2)
       Label(self, text="").grid(row=1)
 
-      # text box widget to change desired sound levels to normalize to
+      # text box widget to change normalized export type (default is MP3)
+      typeFrame = Frame(self)
+      typeFrame.grid(row=2, columnspan=2)
+
+      Label(typeFrame, text="Normalized export type: ").pack(side=LEFT)
+      self.exportType = StringVar()
+      self.exportType.set("mp3")
+      Radiobutton(typeFrame, text = "MP3", variable = self.exportType, value = "mp3").pack(side=LEFT)
+      Radiobutton(typeFrame, text = "OPUS", variable = self.exportType, value = "opus").pack(side=LEFT)
+
+      # text box widget to change desired normalized sound levels
       targetFrame = Frame(self)
-      targetFrame.grid(row=2, columnspan=2)
+      targetFrame.grid(row=3, columnspan=2)
+
       Label(targetFrame, text="Target sound level: ").pack(side=LEFT)
       self.targetLevelVar = StringVar()
-      self.targetAudioInput = Entry(targetFrame, textvariable=self.targetLevelVar, width=10)
       self.targetLevelVar.set(settings.level["target"])
-      self.targetAudioInput.pack(side=LEFT)
+      Entry(targetFrame, textvariable=self.targetLevelVar, width=10).pack(side=LEFT)
       # note: dBFS (decibel full scale) is not the same as dB
       Label(targetFrame, text="dBFS").pack(side=LEFT)
 
       importFolderBtn = Button(self, text="Import music folder", command=self.loadMusic, bg="#e0fcea")
-      importFolderBtn.grid(row=3, column=0, pady=5)
+      importFolderBtn.grid(row=4, column=0, pady=5)
       importFileBtn = Button(self, text="Import music file", command=lambda: self.loadMusic(False), bg="#e0fcea")
-      importFileBtn.grid(row=3, column=1, pady=5)
+      importFileBtn.grid(row=4, column=1, pady=5)
 
       self.countLbl = Label(self, text="0 out of 0 songs to normalize")
-      self.countLbl.grid(row=4, columnspan=2, pady=2)
+      self.countLbl.grid(row=5, columnspan=2, pady=2)
 
       normalizeBtn = Button(self, text="Normalize music", command=self.startNormalizeThread, bg="#eae0fc")
-      normalizeBtn.grid(row=5, columnspan=2, pady=2)
+      normalizeBtn.grid(row=6, columnspan=2, pady=2)
 
       # tip text
       Label(self, text="Tip: This normalizes music by its average loudness, not its peak.\n" \
-      "It's highly recommended to keep the target level between -20 and -10.").grid(row=6, columnspan=2)
+      "It's highly recommended to keep the target level between -20 and -10.").grid(row=7, columnspan=2)
 
       # to show progress of normalization process
       self.progress = IntVar()
       self.progressbar = ttk.Progressbar(self, variable=self.progress, length=250)
-      self.progressbar.grid(row=7, columnspan=2, pady=5)
+      self.progressbar.grid(row=8, columnspan=2, pady=5)
 
       self.audioFileTypes = [".mp3", ".ogg", ".opus", ".flac", ".m4a", ".wav"]
       self.validArr = []
@@ -73,7 +84,7 @@ class Riglevel (Frame):
             for file in files:
                file = os.path.join(path, file)
                name, ext = os.path.splitext(file)
-               if ext in self.audioFileTypes and not name.endswith("_normalized"):
+               if ext.lower() in self.audioFileTypes and not name.endswith("_normalized"):
                   songArr.append(file)
       else:
          f = filedialog.askopenfilename(filetypes = (("Music files", "*.mp3 *.ogg *.opus *.flac *.m4a *.wav"),("All files","*")))
@@ -131,7 +142,8 @@ class Riglevel (Frame):
             # pydub can't seem to open opus files despite ffmpeg supporting it
             # tricking it into reading it as an ogg file works
             sound = AudioSegment.from_file(song, format="ogg" if ext == "opus" else ext)
-         except Exception:
+            metadata = mediainfo(song).get("TAG", {})
+         except Exception as e:
             # if song file could not be read, skip it while noting down the name
             print("Pydub failed to read {}. This is highly likely due to the " \
             "song file using an audio codec that isn't supported.".format(song))
@@ -165,9 +177,22 @@ class Riglevel (Frame):
          output = sound.apply_gain(change)
 
          # export normalized song
-         outfile = name + "_normalized.opus"
-         print("   Writing normalised file to {}".format(outfile))
-         output.export(outfile, format="opus", parameters=["-c:a", "libopus", "-b:a", "160k"])
+         outfile = name + f"_normalized.{self.exportType.get()}"
+         print(f"   Writing normalised file to {outfile}")
+         # if there's title and artist metadata in original song, embed it into normalized version
+         title = ""
+         artist = ""
+         if (metadata):
+            title = metadata.get("title", "")
+            artist = metadata.get("artist", "")
+
+         # export normalized song according to user selection
+         if (self.exportType.get() == "opus"):
+            output.export(outfile, format="opus", parameters=["-c:a", "libopus", "-b:a", "160k"],
+                          tags={"title": title, "artist": artist})
+         else:
+            output.export(outfile, format="mp3", parameters=["-c:a", "libmp3lame", "-q:a", "0"],
+                          tags={"title": title, "artist": artist})
 
          # tick up the counter and update progress bar accordingly
          count += 1
@@ -210,6 +235,9 @@ def main():
    riglevel = Riglevel(master)
    riglevel.pack()
    master.protocol("WM_DELETE_WINDOW", close)
+   # if config file was generated, show config prompt window before letting Riglevel run
+   if settings.fileGen:
+      openConfig()
    mainloop()
 
 killThread = False

@@ -1,7 +1,6 @@
 from condition import *
 from os.path import splitext
-from glob import glob
-import random
+import random, time
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
@@ -135,8 +134,13 @@ class ConditionPlayer (ConditionList):
       # append and prepare the instructions to this object
       self.appendInstructions()
       self.instruct()
+      # songs using the OGG container formats require manual looping due to libVLC bug
+      oggFormat = splitext(songname)[1].lower() in {'.opus', '.ogg', '.oga', '.ogv', '.ogx', '.spx', '.ogm'}
+      # songs with a set start time also require manual looping so that it loops back to the set time
+      setStartTime = any(isinstance(instruction, StartInstruction) for instruction in self.instructionsStart)
+      self.manualLoop = oggFormat or setStartTime
       # hard override for events to stop them repeating
-      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer):
+      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
          self.song.get_media().add_options("input-repeat=-1")
 
    def appendInstructions (self):
@@ -153,16 +157,8 @@ class ConditionPlayer (ConditionList):
       print("Attempting to load "+filename)
       fullpath = abspath(filename)
 
-      # check to see if there's a normalized version of the song file first
-      normalized = glob(splitext(fullpath)[0] + "_normalized.*")
-      if normalized:
-         print("Normalized version of " + fullpath + " found")
-         self.songname = normalized[0]
-         fullpath = normalized[0]
-
-      # if song cannot be found, set return the error message instead of the MediaPlayer
-      # reason for doing this is to have rigdio check for all missing files
-      # and list them all out instead of just one at a time
+      # if song cannot be found, return error message instead of MediaPlayer
+      # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
       # no-video to prevent any video tracks from playing
@@ -329,7 +325,7 @@ class PlayerManager:
       # play the song
       self.song.play()
       # start the end checker instruction thread
-      if len(self.song.instructionsEnd) > 0:
+      if len(self.song.instructionsEnd) > 0 or (self.song.repeat and self.song.manualLoop):
          self.endChecker = threading.Thread(target=self.checkEnd)
          self.endChecker.start()
       # remove any data specific to this goal
@@ -337,6 +333,19 @@ class PlayerManager:
       # if the song is the victory anthem and not a warcry, start victory song duration timer
       if self.clists[0].pname == "victory" and not self.song.warcry:
          self.master.timer.retrieveSongInfo()
+
+      # check if user has enabled write to title.log function
+      if not self.song.warcry and settings.config["write_song_title_log"] > 0:
+         global titleThread
+         global titleCheck
+         # if title timer thread already exists,
+         # kill it and wait for it to die before creating a new one
+         if titleCheck:
+            titleCheck = False
+            titleThread.join()
+         titleThread = threading.Thread(target=self.writeTitleLog)
+         titleThread.start()
+
       return self.firstTime
 
    def pauseSong (self):
@@ -354,9 +363,22 @@ class PlayerManager:
    def checkEnd (self):
       while self.endChecker is not None:
          if self.song.song.get_media().get_state() == vlc.State.Ended:
-            for instruction in self.song.instructionsEnd:
-               instruction.run(self)
-            self.endChecker = None
+
+            if len(self.song.instructionsEnd) > 0:
+               if self.song.warcry:
+                  self.song.song.stop()
+               for instruction in self.song.instructionsEnd:
+                  instruction.run(self)
+               break
+            
+            if self.song.repeat and self.song.manualLoop:
+               self.song.song.stop()
+               sleep(0.05)
+               self.song.song.play()
+               self.song.song.audio_set_volume(self.song.maxVolume)
+               for instruction in self.song.instructionsStart:
+                  instruction.run(self.song)
+               continue
 
    # if the song is currently playing or has been played, reset it
    def resetLastPlayed (self):
@@ -364,3 +386,66 @@ class PlayerManager:
          self.pauseSong()
          self.lastSong.song.stop()
          self.lastSong.reloadSong()
+
+   # writes currently playing song's details to title.log, clearing it after a set amount of time
+   def writeTitleLog (self):
+      print("Write title timer thread started.")
+      global titleThread
+      global titleCheck
+      titleCheck = True
+      # parse song to get its metadata
+      media = self.song.song.get_media()
+      media.parse()
+      # sleep delay needed for python-vlc to properly retrieve metadata
+      sleep(1)
+      # exit thread if it has been interrupted early
+      if titleThread is None or not titleCheck:
+         print("Write title timer thread ended early.")
+         titleThread = None
+         titleThread = False
+         return
+      
+      # get metadata title and artist
+      title = media.get_meta(vlc.Meta.Title)
+      artist = media.get_meta(vlc.Meta.Artist)
+      # music note to signify it's music or something (idk, it was requested)
+      text = "♪ "
+      # add artist details first if it's available
+      if (artist is not None):
+         text += artist + " — "
+      try:
+         # if a song doesn't have a metadata title, it returns the full filename including its path
+         # hence it needs to be stripped before adding it to text
+         if isfile(title):
+            text += splitext(basename(title))[0]
+         else:
+            text += title
+         # utf-8 encoding for weeb characters
+         with open("title.log", 'w', encoding='utf8') as file:
+            file.write(text)
+      # if title could not be written in for some reason, use the filename instead
+      except:
+         mrl = media.get_mrl()
+         text += splitext(basename(mrl[7:]))[0]
+         with open("title.log", 'w', encoding='utf8') as file:
+            file.write(text)
+
+      timerStart = time.time()
+      while titleThread is not None:
+         # exit loop if thread has been interrupted, song has ended, or timer has run out
+         if (not titleCheck or self.song is None or
+               self.song.song.get_media().get_state() == vlc.State.Ended or
+               (time.time() - timerStart) > settings.config["write_song_title_log"]):
+            break
+      
+      # clear title.log and exit thread
+      print("Write title timer thread ended.")
+      with open("title.log", 'w') as file:
+         file.write("")
+      titleThread = None
+      titleCheck = False
+
+# global variables for the title timer thread
+# required as they need to be accessed across different PlayerManager instances
+titleThread = None
+titleCheck = False

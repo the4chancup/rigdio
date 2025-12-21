@@ -1,4 +1,5 @@
-from os.path import basename, splitext
+from os import listdir
+from os.path import basename, splitext, isfile
 from legacy import ConditionList, ConditionPlayer
 
 # reserved names
@@ -54,6 +55,7 @@ def parse (filename, load = True, home = True):
       filename = folder+data[1] # location of song, relative to location of export file
       # if we're loading the songs, create ConditionPlayer objects
       if load:
+         filename = songCheck(folder, data[1]) # check for song file, including normalised
          songtype = ("goalhorn" if (player != "anthem" and player != "victory") else player)
          clist = ConditionPlayer(
             pname=data[0],
@@ -104,6 +106,21 @@ def parse (filename, load = True, home = True):
             players[name].extend(players['goal'])
    print("Loaded songs for team /{}/".format(tname))
    return players, tname, events
+
+def songCheck (folder, name):
+   # check for normalized version of song file first
+   normalized = splitext(name)[0] + "_normalized"
+   for file in listdir(folder):
+      if splitext(file)[0].lower() == normalized.lower():
+         print("Normalized version of " + folder+name + " found")
+         return folder+file
+   # check for regular song file after
+   # required due to linux's file system being case-sensitive
+   if not isfile(folder+name):
+      for file in listdir(folder):
+         if file.lower() == name.lower():
+            return folder+file
+   return folder+name
 
 def main ():
    file = parse("./music/4cc/m/m.4ccm")

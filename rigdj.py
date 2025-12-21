@@ -6,7 +6,7 @@ from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
-from config import settings
+from config import settings, openConfig
 from condition import *
 from conditioneditor import ConditionDialog
 
@@ -863,8 +863,14 @@ def main ():
    # construct editor object in window
    dj = Editor(mainWindow)
    dj.pack()
-   # run
-   mainloop()
+   # if config file was generated, show config prompt window before letting RigDJ run
+   if settings.fileGen:
+      openConfig()
+   try:
+      mainloop()
+   except RuntimeError as e:
+      print("Error occurred: {}".format(e))
+      return
 
 if __name__ == '__main__':
    main()

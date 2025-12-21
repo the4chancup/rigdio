@@ -27,29 +27,32 @@ class ChantsFrame(Frame):
       # volume slider
       Label(self, text="Chants Volume").grid(columnspan=2)
       self.chantVolume = Scale(self, from_=0, to=100, orient=HORIZONTAL, command=self.chantsManager.adjustManagerVolume, showvalue=0, length = 150)
-      self.chantVolume.set(80)
+      self.chantVolume.set(self.chantsManager.lastVolume)
       self.chantVolume.grid(columnspan=2)
       # blank space between the sliders and chant buttons to separate them, make it look nicer
       Label(self, text=None).grid(columnspan=2)
 
       # chant timer checkbox, for if the user doesn't want to use it
       # set the checkbox default state depending on user's configs
-      if settings.config["chant_timer_enabled_default"]:
-         self.timerCheckbox = IntVar(value=1)
-      else:
-         self.timerCheckbox = IntVar(value=0)
-      self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.timerCheckbox, command=self.enableTimer)
+      self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.chantsManager.usingTimer, command=self.enableTimer)
       self.enableTimerCheckbox.grid(columnspan=2)
 
       self.chantTimerText = Label(self, text="Chants Timer")
       self.chantTimerText.grid(columnspan=2)
 
       # chant timer slider
-      #self.chantTimer = Scale(self, from_=20, to=60, orient=HORIZONTAL, command=self.adjustTimer, resolution=5, showvalue=1, length = 150)
       self.chantTimer = Scale(self, from_=20, to=60, orient=HORIZONTAL, command=self.chantsManager.adjustTimer, resolution=5, showvalue=1, length = 150)
-      self.chantTimer.set(30)
+      self.chantTimer.set(self.chantsManager.lastTimer)
       self.chantTimer.grid(columnspan=2)
       self.enableTimer()
+      # disable use of timer settings if a chant is playing when the chant window is opened
+      if self.chantsManager.activeChant is not None:
+         self.enableTimerCheckbox["state"] = DISABLED
+         self.enableTimerCheckbox["fg"] = 'grey'
+
+         self.chantTimerText["fg"] = 'grey'
+         self.chantTimer["state"] = DISABLED
+         self.chantTimer["fg"] = 'grey'
       # stop chant early button
       self.stopEarlyButton = Button(self, text="Stop Chant Early", command=self.chantsManager.endThread, bg="#f9fce0")
       self.stopEarlyButton.grid(columnspan=2)
@@ -114,8 +117,7 @@ class ChantsFrame(Frame):
 
    # used to enable/disable the use of the timer for chants, greys out and disables the text and slider to show it better
    def enableTimer (self):
-      value = self.timerCheckbox.get()
-      self.chantsManager.usingTimer = False if value == 0 else True
+      value = self.chantsManager.usingTimer.get()
 
       self.chantTimerText["fg"] = 'grey' if value == 0 else 'black'
       self.chantTimer["state"] = DISABLED if value == 0 else NORMAL
@@ -123,7 +125,7 @@ class ChantsFrame(Frame):
 
 # creates and manages the chant buttons
 class ChantsButton:
-   def __init__ (self, frame, chantsManager, chant, text, home, shuffle = False):
+   def __init__ (self, frame, chantsManager, chant, text, home, random = False):
       # used to randomise the chant by having the argument take in the list of chants instead
       self.chantList = chant if random and isinstance(chant, list) else list()
       self.frame = frame
@@ -131,15 +133,10 @@ class ChantsButton:
       self.chant = chant
       self.text = text
       self.home = home
-      self.shuffle = shuffle
-      if self.shuffle:
-         self.shuffledList = self.chantList.copy()
-         # there's been complaints that the random button isn't that random, let's see if this helps
-         random.shuffle(self.shuffledList)
-         random.shuffle(self.shuffledList)
+      self.random = random
 
       # how long a chant can be played for until it begins to fade out
-      self.fadeOutTime = self.chantsManager.defaultTimer
+      self.fadeOutTime = self.chantsManager.lastTimer
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=settings.colours["home" if self.home else "away"])
 
    def playChant (self):
@@ -147,17 +144,12 @@ class ChantsButton:
       if self.chantsManager.activeChant is not None:
          print("Denied, chant currently playing.")
       # if team has no chants, ignore command
-      elif self.shuffle and not self.chantList:
+      elif self.random and not self.chantList:
          print("Team has no chants.")
       else:
          # randomly pick a chant from the list and set as this button's chant
-         if self.shuffle:
-            self.chant = self.shuffledList.pop(0)
-            if not self.shuffledList:
-               print("List copied and shuffled.")
-               self.shuffledList = self.chantList.copy()
-               random.shuffle(self.shuffledList)
-               random.shuffle(self.shuffledList)
+         if self.random:
+            self.chant = random.choice(self.chantList)
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
          self.chantsManager.activeChant = self.chant
@@ -166,6 +158,7 @@ class ChantsButton:
          self.chant.play()
          print("Chant now playing.")
          print("Chant Timer: {} seconds.".format(self.fadeOutTime))
+
          # while greying out the timer stuff and starting the chant end checker thread
          self.chantsManager.disableChantTimer(True, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
          self.chantEndCheck.start()
@@ -193,7 +186,7 @@ class ChantsButton:
             self.chantDone()
             self.chantEndCheck = None
          # checks if the user is even using the timer in the first place as well
-         elif self.chantsManager.usingTimer and (time.time() - self.chantStart) > self.fadeOutTime:
+         elif self.chantsManager.usingTimer.get() and (time.time() - self.chantStart) > self.fadeOutTime:
             print("Chant timed out, fade starting.")
             self.chant.fade = True
             self.chant.fadeOut()
@@ -203,10 +196,11 @@ class ChantsButton:
    # clears out the active chant variable once the chant is over
    def chantDone (self):
       if self.chantsManager.activeChant is not None:
-         self.playButton.configure(relief=RAISED)
          self.chantsManager.activeChant = None
          print("Chant {} concluded.".format(self.text))
-         self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
+         if self.frame.winfo_exists():
+            self.playButton.configure(relief=RAISED)
+            self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
 
    def insert (self, row):
       self.playButton.grid(row=row, column=0 if self.home else 1)
@@ -223,8 +217,8 @@ class ChantsManager:
       self.homeRandom, self.awayRandom = list(), list()
 
       # default settings for chant timer and volume
-      self.defaultTimer = 30
-      self.defaultVolume = 80
+      self.lastTimer = 30
+      self.lastVolume = 80
 
       # chant that is currently being played
       self.activeChant = None
@@ -233,7 +227,7 @@ class ChantsManager:
       self.endThreadEarly = False
 
       # used to check if program is using the timer
-      self.usingTimer = True
+      self.usingTimer = IntVar(value=settings.config["chant_timer_enabled_default"])
 
    def setHome (self, filename=None, parsed=None):
       if parsed is not None:
@@ -257,7 +251,7 @@ class ChantsManager:
          
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.homeRandom, True)
-      self.adjustManagerVolume(self.defaultVolume)
+      self.adjustManagerVolume(self.lastVolume)
 
       if (self.window is not None):
          self.window.chantsFrame.createChants(home = True)
@@ -284,7 +278,7 @@ class ChantsManager:
 
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.awayRandom, False)
-      self.adjustManagerVolume(self.defaultVolume)
+      self.adjustManagerVolume(self.lastVolume)
       
       if (self.window is not None):
          self.window.chantsFrame.createChants(away = True)
@@ -302,7 +296,7 @@ class ChantsManager:
       frame.enableTimerCheckbox["state"] = DISABLED if disable else NORMAL
       frame.enableTimerCheckbox["fg"] = 'grey' if disable else 'black'
       # if user is not using the timer in the first place, don't touch the text and slider
-      if self.usingTimer:
+      if self.usingTimer.get():
          frame.chantTimerText["fg"] = 'grey' if disable else 'black'
          frame.chantTimer["state"] = DISABLED if disable else NORMAL
          frame.chantTimer["fg"] = 'grey' if disable else 'black'
@@ -314,6 +308,7 @@ class ChantsManager:
       # adjusts the volume of all the chants at the same time
       for chant in self.allChants:
          chant.adjustVolume(value)
+      self.lastVolume = value
 
    def adjustTimer (self, value):
       # shoves all of the chant buttons (including the random ones) into a single list
@@ -324,11 +319,4 @@ class ChantsManager:
       # adjusts the fade out timer of all the chants at the same time
       for chantButton in self.allButtons:
          chantButton.fadeOutTime = float(value)
-
-   # reset values of timer and volume that may have been changed in chant window back to default
-   def resetValues (self):
-      self.adjustTimer(self.defaultTimer)
-      self.adjustManagerVolume(self.defaultVolume)
-
-      self.activeChant = None
-      self.usingTimer = True
+      self.lastTimer = float(value)
