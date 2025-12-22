@@ -9,7 +9,7 @@ defaults = dict(
       alphabetical_sort_goalhorns=0, # sort player goalhorns alphabetically
       alphabetical_sort_chants=0, # sort team chants alphabetically
       chant_timer_enabled_default=1, # enable chant timer by default
-      show_goalhorn_volume_default=0, # show goalhorn volume sliders by default
+      show_goalhorn_volume_default=1, # show goalhorn volume sliders by default
       write_song_title_log=0, # write a title.log file that contains the current song's title/filename before clearing it, values above 0 sets the timer
       write_to_log=1 # allow rigdio/rigdj to write log files (some systems don't allow rigdio/rigdj to write to log, causing it to crash)
    ),
