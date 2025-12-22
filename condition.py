@@ -215,7 +215,7 @@ class ComebackCondition (Condition):
 
 class MatchCondition (Condition):
    desc = """Plays if the match any of the listed types."""
-   types = ["Group", "RO16", "Quarterfinal", "Semifinal", "Final", "Third-Place", "Boss", "Consolation"]
+   types = ["Group", "Survival", "RO16", "Quarterfinal", "Semifinal", "Final", "Third-Place", "Boss", "Consolation"]
    knockout = ["RO16", "Quarterfinal", "Semifinal", "Final", "Third-Place"]
 
    def __init__ (self, tokens, **kwargs):
