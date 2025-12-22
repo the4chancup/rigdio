@@ -1,7 +1,7 @@
 from version import riglevel_version as version
 from tkinter import *
 import tkinter.messagebox as messagebox
-from config import settings, openConfig
+from config import settings, openConfig, applyDarkMode
 
 import os
 from threading import Thread
@@ -22,6 +22,7 @@ if __name__ == '__main__':
 class Riglevel (Frame):
    def __init__(self, master):
       super().__init__(master)
+      colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
       Label(self, text="Use this program to normalize music sound levels.").grid(columnspan=2)
       Label(self, text="").grid(row=1)
 
@@ -32,8 +33,8 @@ class Riglevel (Frame):
       Label(typeFrame, text="Normalized export type: ").pack(side=LEFT)
       self.exportType = StringVar()
       self.exportType.set("mp3")
-      Radiobutton(typeFrame, text = "MP3", variable = self.exportType, value = "mp3").pack(side=LEFT)
-      Radiobutton(typeFrame, text = "OPUS", variable = self.exportType, value = "opus").pack(side=LEFT)
+      Radiobutton(typeFrame, text = "MP3", variable = self.exportType, value = "mp3", selectcolor=colours["bg"]).pack(side=LEFT)
+      Radiobutton(typeFrame, text = "OPUS", variable = self.exportType, value = "opus", selectcolor=colours["bg"]).pack(side=LEFT)
 
       # text box widget to change desired normalized sound levels
       targetFrame = Frame(self)
@@ -46,15 +47,15 @@ class Riglevel (Frame):
       # note: dBFS (decibel full scale) is not the same as dB
       Label(targetFrame, text="dBFS").pack(side=LEFT)
 
-      importFolderBtn = Button(self, text="Import music folder", command=self.loadMusic, bg="#e0fcea")
+      importFolderBtn = Button(self, text="Import music folder", command=self.loadMusic, bg=colours["load"])
       importFolderBtn.grid(row=4, column=0, pady=5)
-      importFileBtn = Button(self, text="Import music file", command=lambda: self.loadMusic(False), bg="#e0fcea")
+      importFileBtn = Button(self, text="Import music file", command=lambda: self.loadMusic(False), bg=colours["load"])
       importFileBtn.grid(row=4, column=1, pady=5)
 
       self.countLbl = Label(self, text="0 out of 0 songs to normalize")
       self.countLbl.grid(row=5, columnspan=2, pady=2)
 
-      normalizeBtn = Button(self, text="Normalize music", command=self.startNormalizeThread, bg="#eae0fc")
+      normalizeBtn = Button(self, text="Normalize music", command=self.startNormalizeThread, bg=colours["normalize"])
       normalizeBtn.grid(row=6, columnspan=2, pady=2)
 
       # tip text
@@ -231,6 +232,9 @@ def main():
       killThread = True
       master.destroy()
 
+   # change window palette to dark mode if enabled in config
+   if settings.config["dark_mode_enabled"]:
+      applyDarkMode(master)
    master.title("riglevel {}".format(version))
    riglevel = Riglevel(master)
    riglevel.pack()

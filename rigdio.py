@@ -5,7 +5,7 @@ from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
-from config import genConfig, openConfig, settings
+from config import genConfig, openConfig, applyDarkMode, settings
 
 from condition import MatchCondition
 from rigparse import parse as parseLegacy
@@ -60,9 +60,11 @@ class Rigdio (Frame):
       self.game = GameState(instance=self)
       self.home = None
       self.away = None
+      # UI colour palette
+      self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
       # file menu
-      Button(self, text="Load Home Team", command=self.loadFile, bg=settings.colours["home"]).grid(row=0, column=0)
-      Button(self, text="Load Away Team", command=lambda: self.loadFile(False), bg=settings.colours["away"]).grid(row=0, column=2)
+      Button(self, text="Load Home Team", command=self.loadFile, bg=self.colours["home"]).grid(row=0, column=0)
+      Button(self, text="Load Away Team", command=lambda: self.loadFile(False), bg=self.colours["away"]).grid(row=0, column=2)
       # score widget
       self.scoreWidget = ScoreWidget(self, self.game)
       self.game.widget = self.scoreWidget
@@ -99,7 +101,7 @@ class Rigdio (Frame):
       Label(self.middleStuff, text=None).grid(columnspan=2)
       self.chaosHorn = Button(self.middleStuff, text="Chaoshorn", command=self.goNuclear, bg="#ee4b2b")
       self.chaosHorn.grid(columnspan=2)
-      self.killChaos = Button(self.middleStuff, text="Kill Chaoshorn", command=self.stopNuclear, bg="#2bb4ee")
+      self.killChaos = Button(self.middleStuff, text="Kill Chaoshorn", command=self.stopNuclear, bg=self.colours["kill"])
       self.killChaos.grid(columnspan=2)
       Label(self.middleStuff, text=None).grid(columnspan=2)
       # universal playback speed slider
@@ -116,7 +118,7 @@ class Rigdio (Frame):
       # blank space
       Label(self.middleStuff, text=None).grid(columnspan=2)
       # stop chant early button
-      self.stopEarlyButton = Button(self.middleStuff, text="Stop Chant Early", command=self.chantsManager.endThread, bg="#f9fce0")
+      self.stopEarlyButton = Button(self.middleStuff, text="Stop Chant Early", command=self.chantsManager.endThread, bg=self.colours["stop"])
       self.stopEarlyButton.grid(columnspan=2)
       # random chant buttons accessible from the main window
       self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, None, "Random", True, True)
@@ -149,7 +151,7 @@ class Rigdio (Frame):
    def disablePlaybackSpeedSlider (self, disable):
       if self.playbackSpeedMenu is not None:
          self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
-         self.playbackSpeedMenu["fg"] = 'grey' if disable else 'black'
+         self.playbackSpeedMenu["fg"] = 'grey' if disable else self.colours["fg"]
 
    def replaceChantButton (self, chantsList, home):
       if home:
@@ -293,8 +295,11 @@ def main ():
       master.iconbitmap(default=datafile)
    except:
       pass
+   
+   # change window palette to dark mode if enabled in config
+   if settings.config["dark_mode_enabled"]:
+      applyDarkMode(master)
    master.title("rigdio {}".format(version))
-
    rigdio = Rigdio(master)
    rigdio.pack()
    master.protocol('WM_DELETE_WINDOW', lambda: rigdio.mainClose(master))

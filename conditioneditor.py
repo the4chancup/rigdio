@@ -245,6 +245,7 @@ class MatchConditionEditor (ConditionEditor):
    def __init__ (self, master, cond):
       self.selector = {}
       self.buttons = {}
+      self.selectColour = settings.darkColours['bg'] if settings.config["dark_mode_enabled"] else settings.lightColours['bg']
       ConditionEditor.__init__(self,master,cond,MatchCondition)
 
    def default (self):
@@ -257,14 +258,14 @@ class MatchConditionEditor (ConditionEditor):
          Label(checkerFrame,text=key).grid(row = i, column = 0)
          key = key.lower()
          self.selector[key] = IntVar()
-         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key])
+         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key],selectcolor=self.selectColour)
          self.buttons[key].grid(row=i, column = 1)
 
          key = MatchCondition.types[i+len(MatchCondition.types)//2]
          Label(checkerFrame,text=key).grid(row = i, column = 2)
          key = key.lower()
          self.selector[key] = IntVar()
-         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key])
+         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key],selectcolor=self.selectColour)
          self.buttons[key].grid(row=i, column = 3)
          i += 1
       if len(MatchCondition.types) % 2 != 0:
@@ -272,7 +273,7 @@ class MatchConditionEditor (ConditionEditor):
          Label(checkerFrame,text=key).grid(row = len(MatchCondition.types)//2, column = 0)
          key = key.lower()
          self.selector[key] = IntVar()
-         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key])
+         self.buttons[key] = Checkbutton(checkerFrame,variable=self.selector[key],selectcolor=self.selectColour)
          self.buttons[key].grid(row=len(MatchCondition.types)//2, column = 1)
 
       for token in tokens:

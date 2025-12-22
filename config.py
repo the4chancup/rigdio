@@ -9,6 +9,7 @@ defaults = dict(
       alphabetical_sort_goalhorns=0, # sort player goalhorns alphabetically
       alphabetical_sort_chants=0, # sort team chants alphabetically
       chant_timer_enabled_default=1, # enable chant timer by default
+      dark_mode_enabled=0, # enable dark mode
       show_goalhorn_volume_default=1, # show goalhorn volume sliders by default
       write_song_title_log=0, # write a title.log file that contains the current song's title/filename before clearing it, values above 0 sets the timer
       write_to_log=1 # allow rigdio/rigdj to write log files (some systems don't allow rigdio/rigdj to write to log, causing it to crash)
@@ -18,9 +19,26 @@ defaults = dict(
       goalhorn=True,
       time=2
    ),
-   colours=dict(
+   lightColours=dict(
+      bg='#ffffff',
+      fg='#1e1e1e',
       home='#e0e0fc',
-      away='#ffe0dd'
+      away='#ffe0dd',
+      stop='#f9fce0',
+      kill='#2bb4ee',
+      load='#e0fcea',
+      normalize='#eae0fc'
+   ),
+   darkColours=dict(
+      bg='#1e1e1e',
+      fg='#ffffff',
+      accent='#659037',
+      home='#3b3f51',
+      away='#513b3b',
+      stop='#4a4e2a',
+      kill='#377590',
+      load='#2a4e3a',
+      normalize='#3a2f5f'
    ),
    gameMinute=6.67,
    level=dict(
@@ -45,6 +63,14 @@ def openConfig():
    "First time run detected, config file with default settings set has been created. Do you wish to open it now?")
    if (confirm):
       startfile("config.yml")
+
+def applyDarkMode(root):
+   root.tk_setPalette(
+      background=settings.darkColours["bg"],
+      foreground=settings.darkColours["fg"],
+      activeBackground=settings.darkColours["accent"],
+      activeForeground=settings.darkColours["fg"],
+      highlightColor=settings.darkColours["accent"])
 
 def recursiveDictCheck(d, defaultD, location):
    for key in defaultD:
@@ -105,6 +131,7 @@ class ConfigValues:
                       'alphabetical_sort_goalhorns:int',
                       'alphabetical_sort_chants:int',
                       'chant_timer_enabled_default:int',
+                      'dark_mode_enabled:int',
                       'show_goalhorn_volume_default:int',
                       'write_to_log:int',
                       'write_song_title_log:int'

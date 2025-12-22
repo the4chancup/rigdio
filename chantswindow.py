@@ -23,6 +23,8 @@ class ChantsFrame(Frame):
    def __init__(self, parent, chantsManager):
       Frame.__init__(self, parent)
       self.chantsManager = chantsManager
+      # UI colour palette
+      self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
       
       # volume slider
       Label(self, text="Chants Volume").grid(columnspan=2)
@@ -34,7 +36,7 @@ class ChantsFrame(Frame):
 
       # chant timer checkbox, for if the user doesn't want to use it
       # set the checkbox default state depending on user's configs
-      self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.chantsManager.usingTimer, command=self.enableTimer)
+      self.enableTimerCheckbox = Checkbutton(self, text="Enable Timer", variable = self.chantsManager.usingTimer, command=self.enableTimer, selectcolor=self.colours["bg"])
       self.enableTimerCheckbox.grid(columnspan=2)
 
       self.chantTimerText = Label(self, text="Chants Timer")
@@ -54,7 +56,7 @@ class ChantsFrame(Frame):
          self.chantTimer["state"] = DISABLED
          self.chantTimer["fg"] = 'grey'
       # stop chant early button
-      self.stopEarlyButton = Button(self, text="Stop Chant Early", command=self.chantsManager.endThread, bg="#f9fce0")
+      self.stopEarlyButton = Button(self, text="Stop Chant Early", command=self.chantsManager.endThread, bg=self.colours["stop"])
       self.stopEarlyButton.grid(columnspan=2)
       # blank space between the sliders and chant buttons to separate them, make it look nicer
       Label(self, text=None).grid(columnspan=2)
@@ -119,9 +121,9 @@ class ChantsFrame(Frame):
    def enableTimer (self):
       value = self.chantsManager.usingTimer.get()
 
-      self.chantTimerText["fg"] = 'grey' if value == 0 else 'black'
+      self.chantTimerText["fg"] = 'grey' if value == 0 else self.colours["fg"]
       self.chantTimer["state"] = DISABLED if value == 0 else NORMAL
-      self.chantTimer["fg"] = 'grey' if value == 0 else 'black'
+      self.chantTimer["fg"] = 'grey' if value == 0 else self.colours["fg"]
 
 # creates and manages the chant buttons
 class ChantsButton:
@@ -134,10 +136,11 @@ class ChantsButton:
       self.text = text
       self.home = home
       self.random = random
+      colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
       # how long a chant can be played for until it begins to fade out
       self.fadeOutTime = self.chantsManager.lastTimer
-      self.playButton = Button(frame, text=self.text, command=self.playChant, bg=settings.colours["home" if self.home else "away"])
+      self.playButton = Button(frame, text=self.text, command=self.playChant, bg=colours["home" if self.home else "away"])
 
    def playChant (self):
       # if there is already a chant going on, ignore command
@@ -209,6 +212,8 @@ class ChantsManager:
    def __init__ (self, window, mainWin):
       self.window = window
       self.mainWin = mainWin
+      # UI colour palette
+      self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
       # stores chant information
       self.homeChants, self.awayChants = list(), list()
@@ -294,12 +299,12 @@ class ChantsManager:
          return
       
       frame.enableTimerCheckbox["state"] = DISABLED if disable else NORMAL
-      frame.enableTimerCheckbox["fg"] = 'grey' if disable else 'black'
+      frame.enableTimerCheckbox["fg"] = 'grey' if disable else self.colours["fg"]
       # if user is not using the timer in the first place, don't touch the text and slider
       if self.usingTimer.get():
-         frame.chantTimerText["fg"] = 'grey' if disable else 'black'
+         frame.chantTimerText["fg"] = 'grey' if disable else self.colours["fg"]
          frame.chantTimer["state"] = DISABLED if disable else NORMAL
-         frame.chantTimer["fg"] = 'grey' if disable else 'black'
+         frame.chantTimer["fg"] = 'grey' if disable else self.colours["fg"]
 
    def adjustManagerVolume (self, value):
       # shoves all of the chants into a single list

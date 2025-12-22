@@ -6,7 +6,7 @@ from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
-from config import settings, openConfig
+from config import settings, openConfig, applyDarkMode
 from condition import *
 from conditioneditor import ConditionDialog
 
@@ -728,7 +728,7 @@ class Preview4CCM (Frame):
       super().__init__(master, editor, **kwargs)
       self.editor = editor
       self.buffer = StringIO()
-      self.text = Text(self, state=DISABLED, width=60, bg="#f0f0ed")
+      self.text = Text(self, state=DISABLED, width=60)
       self.text.pack(fill=Y,expand=1)
 
    def update (self):
@@ -859,6 +859,10 @@ class Editor (Frame):
 def main ():
    # tkinter master window
    mainWindow = Tk()
+   # change window palette to dark mode if enabled in config
+   if settings.config["dark_mode_enabled"]:
+      applyDarkMode(mainWindow)
+   
    mainWindow.title("rigDJ {}".format(version))
    # construct editor object in window
    dj = Editor(mainWindow)
