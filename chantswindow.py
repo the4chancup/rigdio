@@ -119,12 +119,11 @@ class ChantsFrame(Frame):
 
    # used to enable/disable the use of the timer for chants, greys out and disables the text and slider to show it better
    def enableTimer (self):
-      value = self.chantsManager.usingTimer.get()
+      self.chantsManager.timerEnabled = self.chantsManager.usingTimer.get()
 
-      self.chantTimerText["fg"] = 'grey' if value == 0 else self.colours["fg"]
-      self.chantTimer["state"] = DISABLED if value == 0 else NORMAL
-      self.chantTimer["fg"] = 'grey' if value == 0 else self.colours["fg"]
-
+      self.chantTimerText["fg"] = 'grey' if self.chantsManager.timerEnabled == 0 else self.colours["fg"]
+      self.chantTimer["state"] = DISABLED if self.chantsManager.timerEnabled == 0 else NORMAL
+      self.chantTimer["fg"] = 'grey' if self.chantsManager.timerEnabled == 0 else self.colours["fg"]
 # creates and manages the chant buttons
 class ChantsButton:
    def __init__ (self, frame, chantsManager, chant, text, home, random = False):
@@ -189,7 +188,7 @@ class ChantsButton:
             self.chantDone()
             self.chantEndCheck = None
          # checks if the user is even using the timer in the first place as well
-         elif self.chantsManager.usingTimer.get() and (time.time() - self.chantStart) > self.fadeOutTime:
+         elif self.chantsManager.timerEnabled and (time.time() - self.chantStart) > self.fadeOutTime:
             print("Chant timed out, fade starting.")
             self.chant.fade = True
             self.chant.fadeOut()
@@ -233,6 +232,9 @@ class ChantsManager:
 
       # used to check if program is using the timer
       self.usingTimer = IntVar(value=settings.config["chant_timer_enabled_default"])
+      # non-tkinter-binding version of the above variable
+      # required to prevent UI freeze when playing chants on chant window
+      self.timerEnabled = settings.config["chant_timer_enabled_default"]
 
    def setHome (self, filename=None, parsed=None):
       if parsed is not None:
