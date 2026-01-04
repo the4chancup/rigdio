@@ -36,10 +36,10 @@ class PlayerButtons:
       self.awayButtonHook = None
       self.showVolume = True
       # text was specified, so this is a button for a reserved keyword
-      colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
-      self.volumeButton = Button(self.frame, text="🔊", command=self.showHideVolume, bg=colours["home" if home else "away"])
-      self.playButton = Button(self.frame, text=self.text, command=self.playSong, bg=colours["home" if home else "away"])
-      self.resetButton = Button(self.frame, text="⟲", command=self.resetSong, bg=colours["home" if home else "away"])
+      self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
+      self.volumeButton = Button(self.frame, text="🔊", command=self.showHideVolume, bg=self.colours["home" if home else "away"])
+      self.playButton = Button(self.frame, text=self.text, command=self.playSong, bg=self.colours["home" if home else "away"])
+      self.resetButton = Button(self.frame, text="⟲", command=self.resetSong, bg=self.colours["home" if home else "away"])
       self.volume = Scale(self.frame, from_=0, to=100, orient=HORIZONTAL, command=self.clists.adjustVolume, showvalue=0)
       self.volume.set(80)
 
@@ -151,7 +151,7 @@ class PlayerButtons:
                break
       if not specialVAs:
          return specialVAs
-      self.dropdownButton = Menubutton(self.frame, text="▼", relief=RAISED, bg=settings.colours["home" if home else "away"])
+      self.dropdownButton = Menubutton(self.frame, text="▼", relief=RAISED, bg=self.colours["home" if home else "away"])
       menu = Menu(self.dropdownButton, tearoff=False)
       self.dropdownButton.configure(menu=menu)
       self.selected = StringVar()
