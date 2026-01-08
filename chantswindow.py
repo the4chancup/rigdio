@@ -194,6 +194,7 @@ class ChantsButton:
             self.chant.fadeOut()
             self.chantDone()
             self.chantEndCheck = None
+         time.sleep(0.01)
 
    # clears out the active chant variable once the chant is over
    def chantDone (self):
