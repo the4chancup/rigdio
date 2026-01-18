@@ -363,7 +363,6 @@ class PlayerManager:
    def checkEnd (self):
       while self.endChecker is not None:
          if self.song.song.get_media().get_state() == vlc.State.Ended:
-
             if len(self.song.instructionsEnd) > 0:
                if self.song.warcry:
                   self.song.song.stop()
@@ -379,6 +378,7 @@ class PlayerManager:
                for instruction in self.song.instructionsStart:
                   instruction.run(self.song)
                continue
+         time.sleep(0.01)
 
    # if the song is currently playing or has been played, reset it
    def resetLastPlayed (self):
@@ -437,6 +437,7 @@ class PlayerManager:
                self.song.song.get_media().get_state() == vlc.State.Ended or
                (time.time() - timerStart) > settings.config["write_song_title_log"]):
             break
+         time.sleep(0.01)
       
       # clear title.log and exit thread
       print("Write title timer thread ended.")
