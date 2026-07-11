@@ -2,6 +2,13 @@ from condition import *
 from os.path import splitext
 import random, time
 
+# Cache of MediaPlayer objects keyed by absolute file path.
+# Songs with the same filename share the same MediaPlayer so that
+# playback position is preserved when switching between players.
+_media_cache = {}
+# Track which files have already been configured with input-repeat looping
+_media_looping_configured = set()
+
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
       self.pname = pname
@@ -141,13 +148,16 @@ class ConditionPlayer (ConditionList):
       self.manualLoop = oggFormat or setStartTime
       # hard override for events to stop them repeating
       if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
-         self.song.get_media().add_options("input-repeat=-1")
+         fullpath = abspath(songname)
+         if fullpath not in _media_looping_configured:
+            self.song.get_media().add_options("input-repeat=-1")
+            _media_looping_configured.add(fullpath)
 
    def appendInstructions (self):
       for instruction in self.instructions:
          print("Appending {} instruction".format(instruction))
          instruction.append(self)
-   
+
    def instruct (self):
       for instruction in self.instructions:
          print("Preparing {} instruction".format(instruction))
@@ -161,12 +171,21 @@ class ConditionPlayer (ConditionList):
       # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
+      # return cached MediaPlayer if this file was already loaded
+      if fullpath in _media_cache:
+         print("Reusing cached MediaPlayer for "+fullpath)
+         return _media_cache[fullpath]
       # no-video to prevent any video tracks from playing
-      return vlc.MediaPlayer("file:///"+fullpath, ":no-video")
+      player = vlc.MediaPlayer("file:///"+fullpath, ":no-video")
+      _media_cache[fullpath] = player
+      return player
 
    def reloadSong (self):
       self.firstPlay = True
       self.song = self.loadsong(self.songname)
+      # stop the (possibly shared) MediaPlayer to reset its position to the start
+      if isinstance(self.song, vlc.MediaPlayer):
+         self.song.stop()
       self.instruct()
 
    def play (self):
@@ -197,7 +216,7 @@ class ConditionPlayer (ConditionList):
          for instruction in self.instructionsPause:
             instruction.run(self)
          self.song.pause()
-   
+
    def onEnd (self, callback):
       events = self.song.event_manager()
       events.event_attach(vlc.EventType.MediaPlayerEndReached, callback)
@@ -263,7 +282,7 @@ class PlayerManager:
          except UnloadSong:
             # disable the ConditionListPlayer, closing the song file
             self.clists[i].disable()
-            # deleted 
+            # deleted
             del self.clists[i]
             # do not increment i, self.clists[i] is now the next song; continue
             continue
@@ -369,7 +388,7 @@ class PlayerManager:
                for instruction in self.song.instructionsEnd:
                   instruction.run(self)
                break
-            
+
             if self.song.repeat and self.song.manualLoop:
                self.song.song.stop()
                sleep(0.05)
@@ -404,7 +423,7 @@ class PlayerManager:
          titleThread = None
          titleThread = False
          return
-      
+
       # get metadata title and artist
       title = media.get_meta(vlc.Meta.Title)
       artist = media.get_meta(vlc.Meta.Artist)
@@ -438,7 +457,7 @@ class PlayerManager:
                (time.time() - timerStart) > settings.config["write_song_title_log"]):
             break
          time.sleep(0.01)
-      
+
       # clear title.log and exit thread
       print("Write title timer thread ended.")
       with open("title.log", 'w') as file:
