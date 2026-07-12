@@ -3,7 +3,7 @@ from os.path import basename, splitext, isfile
 from legacy import ConditionList, ConditionPlayer
 
 # reserved names
-reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event'])
+reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event', 'sync'])
 
 def parse (filename, load = True, home = True):
    """Parses a music export file and loads it into memory."""
@@ -36,6 +36,14 @@ def parse (filename, load = True, home = True):
       tname = nameline[1].lower()
       lines = lines[1:]
 
+   # check for sync flag (defaults to no)
+   sync = False
+   if lines and lines[0].split(';')[0].strip().lower() == "sync":
+      syncval = lines[0].split(';')[1].strip().lower()
+      sync = syncval in ("yes", "on", "true", "1")
+      print("Sync flag: {}".format("enabled" if sync else "disabled"))
+      lines = lines[1:]
+
    # iterate across lines
    for line in lines:
       # ignore comments
@@ -63,7 +71,8 @@ def parse (filename, load = True, home = True):
             data=data[2:],
             songname=filename,
             home=home,
-            type=songtype)
+            type=songtype,
+            sync=sync)
       # otherwise, ConditionList uses less memory and doesn't make libVLC calls
       else:
          clist = ConditionList(

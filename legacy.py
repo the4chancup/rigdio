@@ -119,10 +119,11 @@ class ConditionList:
       return output
 
 class ConditionPlayer (ConditionList):
-   def __init__ (self, pname, tname, data, songname, home, type = "goalhorn"):
+   def __init__ (self, pname, tname, data, songname, home, type = "goalhorn", sync = False):
       ConditionList.__init__(self,pname,tname,data,songname,home,False)
       self.type = type
       self.isGoalhorn = type=="goalhorn"
+      self.sync = sync
       self.song = self.loadsong(songname)
       self.fade = None
       self.startTime = 0
@@ -171,14 +172,14 @@ class ConditionPlayer (ConditionList):
       # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
-      # only goalhorns use shared MediaPlayer caching (to preserve playback position
-      # across players with the same filename); chants and anthems get fresh players
-      if self.isGoalhorn and fullpath in _media_cache:
+      # only sync-enabled goalhorns use shared MediaPlayer caching (to preserve
+      # playback position across players with the same filename)
+      if self.sync and self.isGoalhorn and fullpath in _media_cache:
          print("Reusing cached MediaPlayer for "+fullpath)
          return _media_cache[fullpath]
       # no-video to prevent any video tracks from playing
       player = vlc.MediaPlayer("file:///"+fullpath, ":no-video")
-      if self.isGoalhorn:
+      if self.sync and self.isGoalhorn:
          _media_cache[fullpath] = player
       return player
 
@@ -187,7 +188,7 @@ class ConditionPlayer (ConditionList):
       self.song = self.loadsong(self.songname)
       # only shared (cached) MediaPlayers need stop to reset position;
       # fresh players are already at the start
-      if self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
          self.song.stop()
          sleep(0.05)
       self.instruct()
