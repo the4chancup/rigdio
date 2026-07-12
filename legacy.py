@@ -252,10 +252,6 @@ class ConditionPlayer (ConditionList):
       self.fade = None
 
    def disable (self):
-      if isinstance(self.song, vlc.MediaPlayer):
-         state = self.song.get_media().get_state()
-         if state not in (vlc.State.Stopped, vlc.State.Ended, vlc.State.NothingSpecial):
-            self.song.stop()
       super().disable()
 
 class PlayerManager:
