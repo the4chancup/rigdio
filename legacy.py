@@ -121,9 +121,9 @@ class ConditionList:
 class ConditionPlayer (ConditionList):
    def __init__ (self, pname, tname, data, songname, home, type = "goalhorn"):
       ConditionList.__init__(self,pname,tname,data,songname,home,False)
-      self.song = self.loadsong(songname)
       self.type = type
       self.isGoalhorn = type=="goalhorn"
+      self.song = self.loadsong(songname)
       self.fade = None
       self.startTime = 0
       self.customSpeed = False
@@ -171,20 +171,23 @@ class ConditionPlayer (ConditionList):
       # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
-      # return cached MediaPlayer if this file was already loaded
-      if fullpath in _media_cache:
+      # only goalhorns use shared MediaPlayer caching (to preserve playback position
+      # across players with the same filename); chants and anthems get fresh players
+      if self.isGoalhorn and fullpath in _media_cache:
          print("Reusing cached MediaPlayer for "+fullpath)
          return _media_cache[fullpath]
       # no-video to prevent any video tracks from playing
       player = vlc.MediaPlayer("file:///"+fullpath, ":no-video")
-      _media_cache[fullpath] = player
+      if self.isGoalhorn:
+         _media_cache[fullpath] = player
       return player
 
    def reloadSong (self):
       self.firstPlay = True
       self.song = self.loadsong(self.songname)
-      # stop the (possibly shared) MediaPlayer to reset its position to the start
-      if isinstance(self.song, vlc.MediaPlayer):
+      # only shared (cached) MediaPlayers need stop to reset position;
+      # fresh players are already at the start
+      if self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
          self.song.stop()
          sleep(0.05)
       self.instruct()

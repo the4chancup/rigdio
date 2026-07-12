@@ -17,6 +17,7 @@ defaults = dict(
    fade=dict(
       anthem=True,
       goalhorn=True,
+      chant=True,
       time=2
    ),
    lightColours=dict(
@@ -114,7 +115,7 @@ class ConfigValues:
          print("Default values will be used.")
          self.configs = defaults
          return
-      
+
       try:
          self.checkConfig()
          defaults["config"] = self.configs

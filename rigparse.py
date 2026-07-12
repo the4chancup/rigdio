@@ -19,7 +19,7 @@ def parse (filename, load = True, home = True):
       "victory" : "Victory Anthem",
       "chant" : "Chant"
    }
-   
+
    # open filename
    with open(filename) as f:
       lines = [line.strip() for line in f.readlines()]
@@ -56,7 +56,7 @@ def parse (filename, load = True, home = True):
       # if we're loading the songs, create ConditionPlayer objects
       if load:
          filename = songCheck(folder, data[1]) # check for song file, including normalised
-         songtype = ("goalhorn" if (player != "anthem" and player != "victory") else player)
+         songtype = player if player in ("anthem", "victory", "chant") else "goalhorn"
          clist = ConditionPlayer(
             pname=data[0],
             tname=tname,
@@ -98,7 +98,7 @@ def parse (filename, load = True, home = True):
          if clist.event not in events:
             events[clist.event] = []
          events[clist.event].append(clist)
-   
+
    # copy default goalhorn onto the end of all player goalhorns
    if load:
       for name, conditions in players.items():
