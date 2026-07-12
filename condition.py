@@ -27,7 +27,7 @@ class Condition:
    def check(self, gamestate):
       """
          Checks if a condition is true or not.
-         
+
          Arguments:
           - gamestate (GameState): state of the game.
       """
@@ -98,7 +98,7 @@ class GoalCondition (ArithCondition):
       if tokens[0] not in binaryOperators:
          raise ValueError("invalid GoalCondition operator "+tokens[0]+"; valid operators are "+list(binaryOperators))
       self.comparison = "{} "+str(tokens[0])+" "+str(tokens[1])
-   
+
    def type (self):
       return "goals"
 
@@ -154,7 +154,7 @@ class OpponentCondition (Condition):
 
 class TeamGoalsCondition (GoalCondition):
    desc = """Plays if the total number of goals scored by this team meets the given condition."""
-   
+
    def __init__ (self, **kwargs):
       super().__init__(**kwargs)
 
@@ -185,7 +185,7 @@ class LeadCondition (GoalCondition):
 
 class FirstCondition (Condition):
    desc = """Plays if this is the first goal that the team has scored in this match."""
-   
+
    def __init__ (self, tokens, **kwargs):
       super().__init__(**kwargs)
 
@@ -294,7 +294,7 @@ class MostGoalsCondition (Condition):
 
    def type (self):
       return "mostgoals"
-   
+
 class SpecialCondition (Condition):
    desc = """(DO NOT SET THIS CONDITION UNDER ANYTHING ELSE OTHER THAN VICTORY ANTHEM, IT WILL BREAK YOUR .4CCM)
 
@@ -388,7 +388,7 @@ class MetaCondition (Condition):
       super().__init__(**kwargs)
       if isinstance(tokens, dict):
          self.sub = []
-         
+
       elif isinstance(tokens, list): # deprecated, will be removed for later conditions
          self.sub = []
          temp = (" ".join(tokens)).split(",")
@@ -666,7 +666,7 @@ class WarcryInstruction (Instruction):
 
    def tokens(self):
       return []
-   
+
 class UnrandomInstruction (Instruction):
    desc = """Exclude song from randomised playbacks. Only works on chants."""
 
@@ -684,6 +684,27 @@ class UnrandomInstruction (Instruction):
 
    def type (self):
       return "unrandom"
+
+   def tokens(self):
+      return []
+
+class AdvanceInstruction (Instruction):
+   desc = """When this song ends, play the next valid goalhorn instead of looping or stopping."""
+
+   def __init__ (self, tokens, **kwargs):
+      pass
+
+   def append (self, player):
+      player.instructionsEnd.append(self)
+
+   def prep (self, player):
+      player.repeat = False
+
+   def run (self, playerManager):
+      playerManager.playSong(skip=playerManager.song)
+
+   def type (self):
+      return "advance"
 
    def tokens(self):
       return []
@@ -742,6 +763,7 @@ conditions = {
    "end" : EndInstruction,
    "warcry" : WarcryInstruction,
    "unrandom" : UnrandomInstruction,
+   "advance" : AdvanceInstruction,
    "event" : EventInstruction # deprecated, for .4ccm use
 }
 
@@ -752,7 +774,8 @@ instructions = {
    "pause" : PauseInstruction,
    "end" : EndInstruction,
    "warcry" : WarcryInstruction,
-   "unrandom" : UnrandomInstruction
+   "unrandom" : UnrandomInstruction,
+   "advance" : AdvanceInstruction
 }
 
 def processTokens (tokenStr):

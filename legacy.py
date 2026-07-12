@@ -219,7 +219,8 @@ class ConditionPlayer (ConditionList):
    def pause (self, fade=None):
       if fade is None:
          fade = self.type in settings.fade and settings.fade[self.type]
-      if fade:
+      # don't fade out if the song has already ended (e.g. advance/warcry)
+      if fade and self.song.get_media().get_state() != vlc.State.Ended:
          print("Fading out {}.".format(self.songname))
          self.fade = threading.Thread(target=self.fadeOut)
          self.fade.start()
@@ -227,6 +228,8 @@ class ConditionPlayer (ConditionList):
          for instruction in self.instructionsPause:
             instruction.run(self)
          self.song.pause()
+         if self.song.get_media().get_state() == vlc.State.Ended:
+            self.reloadSong()
 
    def onEnd (self, callback):
       events = self.song.event_manager()
@@ -277,7 +280,7 @@ class PlayerManager:
          self.song.adjustVolume(value)
       self.futureVolume = value
 
-   def getSong (self, song = None):
+   def getSong (self, song = None, skip = None):
       if song is not None:
          for clist in self.clists:
             if song == clist:
@@ -285,6 +288,10 @@ class PlayerManager:
       # iterate over songs with while loop
       i = 0
       while i < len(self.clists):
+         # skip the song that just ended (advance instruction)
+         if self.clists[i] is skip:
+            i += 1
+            continue
          # try to check the condition list
          try:
             checked = self.clists[i].check(self.game)
@@ -336,11 +343,11 @@ class PlayerManager:
       # if no song was found, return nothing
       return None
 
-   def playSong (self, song = None):
+   def playSong (self, song = None, skip = None):
       # don't play multiple songs at once
       self.pauseSong()
       # get the song to play
-      self.song = self.getSong(song)
+      self.song = self.getSong(song, skip)
       # if volume was stored, update it
       if self.futureVolume is not None:
          self.song.adjustVolume(self.futureVolume)

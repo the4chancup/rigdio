@@ -393,7 +393,7 @@ class SongEditor (Frame):
       # load special VA section title
       self.specialLabel.grid_forget()
       self.specialLabel.grid(row=0,column=0,columnspan=999,sticky=E+W, padx=2, pady=2)
-      # use the same song row list as the regular section, they're 
+      # use the same song row list as the regular section, they're
       for index in range(len(self.songrows)):
          songrow = self.songrows[index]
          songrow.row = index+1
@@ -418,7 +418,7 @@ class SongEditor (Frame):
          # loops through the list of conditions and instructions, breaks once a randomise instruction is found
          for cond in clists[i]:
             # do not count songs with warcry/special instructions on them
-            if cond.type() in ['randomise', 'warcry', 'special']:
+            if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
                self.checkOkay = True
                break
          # if no randomise instruction is found, set the value to false and break the loop
@@ -681,7 +681,7 @@ class PlayerSelectFrame (Frame):
          for row in self.songEditor.songrows:
             noAppend = False
             for cond in row.clist:
-               if cond.type() in ['randomise', 'warcry', 'special']:
+               if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
                   noAppend = True
                   break
             if not noAppend:
