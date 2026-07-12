@@ -339,6 +339,21 @@ class PlayerManager:
                   return self.clists[i]
          # if the song didn't succeed, move to the next
          i += 1
+      # fallback: if no valid song was found, play the first non-warcry song
+      # that isn't the skipped one (advance instruction)
+      if skip is not None:
+         i = 0
+         while i < len(self.clists):
+            if self.clists[i] is skip:
+               i += 1
+               continue
+            if not self.clists[i].warcry:
+               self.warcry = True
+               return self.clists[i]
+            i += 1
+         # final fallback: play the skipped song itself
+         self.warcry = True
+         return skip
       # if no song was found, return nothing
       return None
 
