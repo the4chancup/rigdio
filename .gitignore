@@ -8,3 +8,7 @@ dist/
 
 # Ignore log files
 *.log
+
+# Ignore deployment files
+plugins/
+*.dll
