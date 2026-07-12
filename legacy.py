@@ -186,6 +186,7 @@ class ConditionPlayer (ConditionList):
       # stop the (possibly shared) MediaPlayer to reset its position to the start
       if isinstance(self.song, vlc.MediaPlayer):
          self.song.stop()
+         sleep(0.05)
       self.instruct()
 
    def play (self):
@@ -195,7 +196,13 @@ class ConditionPlayer (ConditionList):
          self.fade = None
          thread.join()
       self.song.play()
-      self.song.audio_set_volume(self.maxVolume)
+      # VLC creates the audio output asynchronously after play(); volume changes
+      # made before the output exists are silently lost. Retry until the set sticks.
+      for _ in range(100):
+         self.song.audio_set_volume(self.maxVolume)
+         if self.song.audio_get_volume() == self.maxVolume:
+            break
+         sleep(0.01)
       if self.firstPlay:
          for instruction in self.instructionsStart:
             instruction.run(self)
