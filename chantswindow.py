@@ -137,6 +137,10 @@ class ChantsButton:
       self.random = random
       colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
+      # exponential decay weighting: each chant's selection weight is
+      # 0.4 ^ times_played, so repeats become increasingly rare
+      self.playCounts = [0] * len(self.chantList)
+
       # how long a chant can be played for until it begins to fade out
       self.fadeOutTime = self.chantsManager.lastTimer
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=colours["home" if self.home else "away"])
@@ -149,9 +153,12 @@ class ChantsButton:
       elif self.random and not self.chantList:
          print("Team has no chants.")
       else:
-         # randomly pick a chant from the list and set as this button's chant
+         # pick a chant using exponential decay weighting
          if self.random:
-            self.chant = random.choice(self.chantList)
+            weights = [0.4 ** count for count in self.playCounts]
+            pick = random.choices(range(len(self.chantList)), weights=weights)[0]
+            self.playCounts[pick] += 1
+            self.chant = self.chantList[pick]
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
          self.chantsManager.activeChant = self.chant
