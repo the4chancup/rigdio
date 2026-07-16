@@ -36,11 +36,11 @@ def parse (filename, load = True, home = True):
       tname = nameline[1].lower()
       lines = lines[1:]
 
-   # check for sync flag (defaults to no)
-   sync = False
+   # check for sync flag (defaults to yes)
+   sync = True
    if lines and lines[0].split(';')[0].strip().lower() == "sync":
       syncval = lines[0].split(';')[1].strip().lower()
-      sync = syncval in ("yes", "on", "true", "1")
+      sync = syncval not in ("no", "off", "false", "0")
       print("Sync flag: {}".format("enabled" if sync else "disabled"))
       lines = lines[1:]
 
