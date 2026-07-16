@@ -1,5 +1,20 @@
+16/07/26 - Version v1.21.0
+- Added "advance" instruction: when a song ends, plays the next valid goalhorn instead of looping or
+  stopping
+- Added "sync" flag in .4ccm files to opt out of shared playback position (which stays on by
+  default) by writing "sync;no"
+- Added weighted random chant selection to reduce chant repetition (chants which already played are
+  much less likely to be picked again)
+- Fixed volume not being set correctly on chant playback start
+- Fixed compiled executable not including the application icon in the bundle
+- Non-goalhorn songs (anthems, chants) no longer use shared MediaPlayer caching, speeding up their
+  loading
+- Improved performance by skipping unnecessary MediaPlayer stop calls on already-stopped media
+
 11/07/26 - Version v1.20.0
-- Songs with the same filename now share playback position when switching between players (e.g. stopping one player's goalhorn and clicking another with the same file resumes from where it left off)
+- Songs with the same filename now share playback position when switching between players (e.g.
+  stopping one player's goalhorn and clicking another with the same file resumes from where it left
+  off)
 - Fixed rare crash on startup when running as a compiled executable with logging enabled
 - Fixed audible pop/click when stopping a goalhorn with fadeout enabled
 
@@ -162,7 +177,8 @@
 - Fixed fadeout volume to scale with player's max volume instead of absolute values
 
 26/10/17 - Version v1.8
-- Added automatic anthem handling: pressing home anthem button now automatically stops or fades away anthem (configurable in rigdio.yml)
+- Added automatic anthem handling: pressing home anthem button now automatically stops or fades away
+  anthem (configurable in rigdio.yml)
 - Added restart button (⟲) to reset last played song
 - Added TimeCondition: prompts for goal minute and plays based on time comparison (raw .4ccm only)
 - Updated for Autumn 2017 ruleset
