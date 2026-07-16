@@ -155,7 +155,7 @@ class ChantsButton:
       else:
          # pick a chant using exponential decay weighting
          if self.random:
-            weights = [0.4 ** count for count in self.playCounts]
+            weights = [0.3 ** count for count in self.playCounts]
             pick = random.choices(range(len(self.chantList)), weights=weights)[0]
             self.playCounts[pick] += 1
             self.chant = self.chantList[pick]
