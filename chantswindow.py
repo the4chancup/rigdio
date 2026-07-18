@@ -219,7 +219,7 @@ class ChantsButton:
                self.chantEndCheck = None
                break
       finally:
-         events.event_detach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
+         events.event_detach(vlc.EventType.MediaPlayerEndReached)
 
    # clears out the active chant variable once the chant is over
    def chantDone (self):

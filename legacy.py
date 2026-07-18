@@ -442,7 +442,7 @@ class PlayerManager:
                   instruction.run(self.song)
                continue
       finally:
-         events.event_detach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
+         events.event_detach(vlc.EventType.MediaPlayerEndReached)
 
    # if the song is currently playing or has been played, reset it
    def resetLastPlayed (self):
@@ -510,7 +510,7 @@ class PlayerManager:
          if (not titleCheck or self.song is None or endEvent.is_set() or
                (time.time() - timerStart) > timeout):
             break
-      events.event_detach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
+      events.event_detach(vlc.EventType.MediaPlayerEndReached)
 
       # clear title.log and exit thread
       print("Write title timer thread ended.")
