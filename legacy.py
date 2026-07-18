@@ -1,5 +1,8 @@
 from condition import *
-from os.path import splitext
+from os.path import splitext, dirname, abspath
+import os, sys
+os.environ["PATH"] = dirname(abspath(sys.argv[0])) + os.pathsep + os.environ["PATH"]
+import mpv
 import random, time
 
 # Cache of playback positions (in ms) keyed by absolute file path.
@@ -141,7 +144,7 @@ class ConditionPlayer (ConditionList):
       # append and prepare the instructions to this object
       self.appendInstructions()
       self.instruct()
-      # songs using the OGG container formats require manual looping due to libVLC bug
+      # songs using the OGG container formats require manual looping due to OGG container issues
       oggFormat = splitext(songname)[1].lower() in {'.opus', '.ogg', '.oga', '.ogv', '.ogx', '.spx', '.ogm'}
       # songs with a set start time also require manual looping so that it loops back to the set time
       setStartTime = any(isinstance(instruction, StartInstruction) for instruction in self.instructionsStart)
@@ -149,10 +152,10 @@ class ConditionPlayer (ConditionList):
       self._configureLooping()
 
    def _configureLooping (self):
-      # configure native VLC looping for repeat-enabled songs;
+      # configure native looping for repeat-enabled songs;
       # called both at init and after reloadSong since each player is separate
-      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
-         self.song.get_media().add_options("input-repeat=-1")
+      if self.repeat and self.event is None and isinstance(self.song, mpv.MPV) and not self.manualLoop:
+         self.song.loop_file = "inf"
 
    def appendInstructions (self):
       for instruction in self.instructions:
@@ -172,8 +175,11 @@ class ConditionPlayer (ConditionList):
       # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
-      # no-video to prevent any video tracks from playing
-      return vlc.MediaPlayer("file:///"+fullpath, ":no-video")
+      # vid=False prevents video tracks; pause=True keeps file paused until play()
+      # keep_open=True prevents idle mode after EOF (matches ended state behavior)
+      player = mpv.MPV(vid=False, pause=True, keep_open=True, force_window=False)
+      player.loadfile(fullpath)
+      return player
 
    def reloadSong (self):
       self.firstPlay = True
@@ -189,14 +195,14 @@ class ConditionPlayer (ConditionList):
          thread = self.fade
          self.fade = None
          thread.join()
-      self.song.play()
-      self.song.audio_set_volume(self.maxVolume)
+      self.song.pause = False
+      self.song.volume = self.maxVolume
       # restore saved playback position for sync-enabled goalhorns
       # (replaces the old shared-MediaPlayer caching approach)
-      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
          fullpath = abspath(self.songname)
          if fullpath in _position_cache:
-            self.song.set_time(_position_cache[fullpath])
+            self.song.time_pos = _position_cache[fullpath] / 1000.0
       if self.firstPlay:
          for instruction in self.instructionsStart:
             instruction.run(self)
@@ -204,52 +210,53 @@ class ConditionPlayer (ConditionList):
 
    def adjustVolume (self, value):
       self.maxVolume = int(value)
-      self.song.audio_set_volume(self.maxVolume)
+      self.song.volume = self.maxVolume
 
    def pause (self, fade=None):
       # save playback position for sync-enabled goalhorns before pausing
-      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
-         _position_cache[abspath(self.songname)] = self.song.get_time()
+      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
+         _position_cache[abspath(self.songname)] = int(self.song.time_pos * 1000)
       if fade is None:
          fade = self.type in settings.fade and settings.fade[self.type]
       # don't fade out if the song has already ended (e.g. advance/warcry)
-      if fade and self.song.get_media().get_state() != vlc.State.Ended:
+      if fade and not self.song.eof_reached:
          print("Fading out {}.".format(self.songname))
          self.fade = threading.Thread(target=self.fadeOut)
          self.fade.start()
       else:
          for instruction in self.instructionsPause:
             instruction.run(self)
-         self.song.pause()
-         if self.song.get_media().get_state() == vlc.State.Ended:
+         self.song.pause = True
+         if self.song.eof_reached:
             self.reloadSong()
 
    def onEnd (self, callback):
-      events = self.song.event_manager()
-      events.event_attach(vlc.EventType.MediaPlayerEndReached, callback)
+      @self.song.event_callback('end-file')
+      def _handler(event):
+         callback()
 
    def fadeOut (self):
       # save playback position for sync-enabled goalhorns before fading out
-      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
-         _position_cache[abspath(self.songname)] = self.song.get_time()
+      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
+         _position_cache[abspath(self.songname)] = int(self.song.time_pos * 1000)
       i = 100
       while i > 0:
          if self.fade == None:
             break
          volume = int(self.maxVolume * i/100)
-         self.song.audio_set_volume(volume)
+         self.song.volume = volume
          sleep(settings.fade["time"]/100)
          i -= 1
       for instruction in self.instructionsPause:
          instruction.run(self)
-      self.song.pause()
-      if self.song.get_media().get_state() == vlc.State.Ended:
+      self.song.pause = True
+      if self.song.eof_reached:
          self.reloadSong()
-      self.song.audio_set_volume(self.maxVolume)
+      self.song.volume = self.maxVolume
       self.fade = None
 
    def disable (self):
-      self.song.stop()
+      self.song.command("stop")
       super().disable()
 
 class PlayerManager:
@@ -410,19 +417,19 @@ class PlayerManager:
 
    def checkEnd (self):
       while self.endChecker is not None:
-         if self.song.song.get_media().get_state() == vlc.State.Ended:
+         if self.song.song.eof_reached:
             if len(self.song.instructionsEnd) > 0:
                if self.song.warcry:
-                  self.song.song.stop()
+                  self.song.song.command("stop")
                for instruction in self.song.instructionsEnd:
                   instruction.run(self)
                break
 
             if self.song.repeat and self.song.manualLoop:
-               self.song.song.stop()
+               self.song.song.time_pos = 0
                sleep(0.05)
-               self.song.song.play()
-               self.song.song.audio_set_volume(self.song.maxVolume)
+               self.song.song.pause = False
+               self.song.song.volume = self.song.maxVolume
                for instruction in self.song.instructionsStart:
                   instruction.run(self.song)
                continue
@@ -432,7 +439,7 @@ class PlayerManager:
    def resetLastPlayed (self):
       if self.lastSong is not None or self.song is not None:
          self.pauseSong()
-         self.lastSong.song.stop()
+         self.lastSong.song.command("stop")
          self.lastSong.reloadSong()
 
    # writes currently playing song's details to title.log, clearing it after a set amount of time
@@ -441,10 +448,7 @@ class PlayerManager:
       global titleThread
       global titleCheck
       titleCheck = True
-      # parse song to get its metadata
-      media = self.song.song.get_media()
-      media.parse()
-      # sleep delay needed for python-vlc to properly retrieve metadata
+      # sleep delay needed for mpv to properly retrieve metadata
       sleep(1)
       # exit thread if it has been interrupted early
       if titleThread is None or not titleCheck:
@@ -454,8 +458,9 @@ class PlayerManager:
          return
 
       # get metadata title and artist
-      title = media.get_meta(vlc.Meta.Title)
-      artist = media.get_meta(vlc.Meta.Artist)
+      metadata = self.song.song.metadata or {}
+      title = metadata.get("title")
+      artist = metadata.get("artist")
       # music note to signify it's music or something (idk, it was requested)
       text = "♪ "
       # add artist details first if it's available
@@ -473,8 +478,8 @@ class PlayerManager:
             file.write(text)
       # if title could not be written in for some reason, use the filename instead
       except:
-         mrl = media.get_mrl()
-         text += splitext(basename(mrl[7:]))[0]
+         path = self.song.song.path or ""
+         text += splitext(basename(path))[0]
          with open("title.log", 'w', encoding='utf8') as file:
             file.write(text)
 
@@ -482,7 +487,7 @@ class PlayerManager:
       while titleThread is not None:
          # exit loop if thread has been interrupted, song has ended, or timer has run out
          if (not titleCheck or self.song is None or
-               self.song.song.get_media().get_state() == vlc.State.Ended or
+               self.song.song.eof_reached or
                (time.time() - timerStart) > settings.config["write_song_title_log"]):
             break
          time.sleep(0.01)

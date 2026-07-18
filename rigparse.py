@@ -73,7 +73,7 @@ def parse (filename, load = True, home = True):
             home=home,
             type=songtype,
             sync=sync)
-      # otherwise, ConditionList uses less memory and doesn't make libVLC calls
+      # otherwise, ConditionList uses less memory and doesn't make mpv calls
       else:
          clist = ConditionList(
             pname=data[0],
@@ -133,12 +133,12 @@ def songCheck (folder, name):
 
 def main ():
    file = parse("./music/4cc/m/m.4ccm")
-   file["Char's Zaku II"][0].song.play()
+   file["Char's Zaku II"][0].song.pause = False
    i = 0
    time.sleep(15)
-   file["Char's Zaku II"][0].song.pause()
+   file["Char's Zaku II"][0].song.pause = True
    time.sleep(5)
-   file["Char's Zaku II"][0].song.play()
+   file["Char's Zaku II"][0].song.pause = False
    while True:
       pass
 

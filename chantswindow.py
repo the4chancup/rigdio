@@ -1,7 +1,7 @@
 from tkinter import *
 from config import settings
 
-import os.path, vlc, threading, time, random
+import os.path, threading, time, random
 
 # chants window class
 class chantswindow(Toplevel):
@@ -192,7 +192,7 @@ class ChantsButton:
             self.chantsManager.activeChant = None
             self.chantEndCheck = None
 
-         if self.chant.song.get_media().get_state() == vlc.State.Ended:
+         if self.chant.song.eof_reached:
             self.chantDone()
             self.chantEndCheck = None
          # checks if the user is even using the timer in the first place as well

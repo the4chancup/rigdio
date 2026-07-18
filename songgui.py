@@ -24,7 +24,7 @@ class PlayerButtons:
       self.victoryAnthem = (self.pname == "victory")
       # timer stuff
       if self.victoryAnthem:
-         # vlc takes some time to retrieve song duration, so a sleep delay is needed
+         # mpv takes some time to retrieve song duration, so a sleep delay is needed
          self.timer = Timer(self, self.frame, 1)
       # check if text is none (most players)
       if self.text is None:
@@ -82,7 +82,7 @@ class PlayerButtons:
             # after the first time, if the playback speed slider has been moved, it will use the value of the slider instead
             self.clists.playSong(self.song)
             if not self.clists.song.customSpeed:
-               self.clists.song.song.set_rate(self.frame.master.playbackSpeedMenu.get())
+               self.clists.song.song.speed = self.frame.master.playbackSpeedMenu.get()
             self.frame.master.disablePlaybackSpeedSlider(True)
          # no song found
          except SongNotFound as e:
@@ -160,7 +160,7 @@ class PlayerButtons:
          menu.add_radiobutton(label=specialVALabels[i], variable=self.selected, value=specialVALabels[i])
       self.selected.trace('w', self.changeVA)
       return specialVAs
-   
+
    # return the specified song from the list of special VAs
    def getSpecial (self):
       for anthem in self.specialVAs:
@@ -183,10 +183,10 @@ class Timer:
       self.songDuration = int()
       self.stopCounting = False
 
-   # have a sleep delay to retrieve song duration before starting up the timer (necessary due to python-vlc being shit)
+   # have a sleep delay to retrieve song duration before starting up the timer
    def retrieveSongInfo (self):
       sleep(self.delay)
-      self.songDuration = int(self.songui.clists.song.song.get_length()/1000)
+      self.songDuration = int(self.songui.clists.song.song.duration)
       self.timerStart()
 
    def timerStart (self):
@@ -269,7 +269,7 @@ class TeamMenuLegacy (Frame):
          self.playerButton = PlayerButtons(self, self.players[name], self.home, self.game)
          self.buttons.append(self.playerButton)
          self.playerButton.insert(startRow+3+2*i)
-   
+
    def buildSongTimer (self):
       self.timeText = Label(self)
       self.updateSongTimer(0, 0)

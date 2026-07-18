@@ -11,8 +11,8 @@ If you're interested in building Rigdio/RigDJ/Riglevel yourself, here's some inf
 
 ### Requirements
 * [Python 3.8.10](https://www.python.org/downloads/release/python-3810/) (but any 3.8 version will do) - Programming language required to run and build the code. Do not use the later Python versions (3.9 or later) as they don't natively support Windows 7, which some streamers still use.
-* [VLC (64-bit)](https://www.videolan.org/vlc/download-windows.html) - Contains the media libraries required to play the songs on Rigdio. It is important that you install the 64-bit version of VLC and not 32-bit which is the default download. Click on the arrow next to the `Download VLC` button and select `Installer for 64bit version` to download the correct version.
-* [python-vlc](https://pypi.org/project/python-vlc/) - Python module used for utilising the VLC media library functions to play songs on Rigdio.
+* [libmpv (64-bit)](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/) - The mpv media library DLL required to play songs on Rigdio. Download the 64-bit `libmpv-2.dll` and place it in the project folder. This is only needed for development and building; the compiled exe bundles the DLL automatically, so end users of the release do not need to install mpv separately.
+* [python-mpv](https://pypi.org/project/python-mpv/) - Python module used for utilising the mpv media library functions to play songs on Rigdio.
 * [PyYAML](https://pypi.org/project/PyYAML/) - Python module used for parsing the default settings used in Rigdio.
 * [pyinstaller](https://pypi.org/project/pyinstaller/) - Python module used for building the executable files.
 * [ffmpeg & ffprobe](https://www.ffmpeg.org/download.html) - **(Riglevel Only)** Multimedia framework required for Riglevel to read audio files. If you don't already have ffmpeg on your computer, you can just grab the executables from the most recent Rigdio release and drop them into this project folder.
@@ -34,12 +34,12 @@ python rigdj.py
 
 ### Building Rigdio/RigDJ
 Once you've fully made and tested out your code changes, you can start building the executables. Simply run the batch file for whichever executable you wish to build (**compile-rigdio.bat** for Rigdio, **compile-rigdj.bat** for RigDJ) and wait for the process to finish. Assuming the build process went smoothly and without error, you will see a couple new files and folders. The built executable will be stored in the `dist` folder for you to test out yourself.<br>
-**TIP:** Replace the executable in the Rigdio release folder with your own built executable before testing it out to have a more accurate runtime environment (Rigdio/RigDJ will use the plugins inside the release folder instead of the ones installed in your system).
+**TIP:** Replace the executable in the Rigdio release folder with your own built executable before testing it out to have a more accurate runtime environment.
 
 If you're on Mac/Linux then you will need to run the command line manually; Fortunately it's short and only a single line.<br>
 The command line to build the Rigdio executable is
 ```
-pyinstaller -F --noconsole --icon=rigdio.ico rigdio.py
+pyinstaller -F --noconsole --icon=rigdio.ico --add-binary "libmpv-2.dll;." rigdio.py
 ```
 
 And the command line to build the RigDJ executable is

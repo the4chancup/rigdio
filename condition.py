@@ -1,7 +1,6 @@
 import threading
 from time import sleep
 from os.path import basename, abspath, isfile
-import vlc
 
 # needed for prompts
 from tkinter import *
@@ -531,7 +530,7 @@ class StartInstruction (Instruction):
       player.startTime = self.startTime
 
    def run (self, player):
-      player.song.set_time(self.startTime)
+      player.song.time_pos = self.startTime / 1000.0
 
    def type (self):
       return "start"
@@ -554,7 +553,7 @@ class SpeedInstruction (Instruction):
       player.customSpeed = True
 
    def run (self, player):
-      player.song.set_rate(self.playbackSpeed)
+      player.song.speed = self.playbackSpeed
 
    def type (self):
       return "speed"
@@ -608,7 +607,7 @@ class PauseInstruction (Instruction):
          return
       if self.played % self.every == 0:
          if self.command == "restart":
-            player.song.set_time(player.startTime)
+            player.song.time_pos = player.startTime / 1000.0
 
    def type (self):
       return "pause"

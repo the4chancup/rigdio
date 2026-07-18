@@ -192,7 +192,7 @@ class Rigdio (Frame):
       try:
          tmusic, tname, events = parseLegacy(f,home=home)
       except AttributeError as e:
-         messagebox.showerror("AttributeError on file load.","Did you download rigdio.exe instead of rigdio.7z? Make sure that the libVLC DLLs and plugins directory are present.")
+         messagebox.showerror("AttributeError on file load.","Did you download rigdio.exe instead of rigdio.7z? Make sure that the mpv DLL is present.")
          raise e
       except UnicodeDecodeError as e:
          messagebox.showerror("UnicodeDecodeError on file load.","Are any of your file names using weeb/non-unicode characters? Make sure they are using only unicode characters.")
@@ -295,7 +295,7 @@ def main ():
       master.iconbitmap(default=datafile)
    except:
       pass
-   
+
    # change window palette to dark mode if enabled in config
    if settings.config["dark_mode_enabled"]:
       applyDarkMode(master)
