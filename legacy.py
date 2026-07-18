@@ -196,8 +196,7 @@ class ConditionPlayer (ConditionList):
       self.song.pause = False
       self.song.volume = self.maxVolume
       # restore saved playback position for sync-enabled goalhorns
-      # (replaces the old shared-MediaPlayer caching approach)
-      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
+      if self.sync and self.isGoalhorn and not self.warcry and isinstance(self.song, mpv.MPV):
          fullpath = abspath(self.songname)
          if fullpath in _position_cache:
             self.song.time_pos = _position_cache[fullpath] / 1000.0
@@ -212,7 +211,7 @@ class ConditionPlayer (ConditionList):
 
    def pause (self, fade=None):
       # save playback position for sync-enabled goalhorns before pausing
-      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
+      if self.sync and self.isGoalhorn and not self.warcry and isinstance(self.song, mpv.MPV):
          pos = self.song.time_pos
          if pos is not None:
             _position_cache[abspath(self.songname)] = int(pos * 1000)
@@ -237,7 +236,7 @@ class ConditionPlayer (ConditionList):
 
    def fadeOut (self):
       # save playback position for sync-enabled goalhorns before fading out
-      if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
+      if self.sync and self.isGoalhorn and not self.warcry and isinstance(self.song, mpv.MPV):
          pos = self.song.time_pos
          if pos is not None:
             _position_cache[abspath(self.songname)] = int(pos * 1000)
