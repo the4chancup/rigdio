@@ -249,6 +249,7 @@ class ConditionPlayer (ConditionList):
       self.song.pause()
       if self.song.get_media().get_state() == vlc.State.Ended:
          self.reloadSong()
+      self.song.audio_set_volume(self.maxVolume)
       self.fade = None
 
    def disable (self):
