@@ -412,8 +412,20 @@ class PlayerManager:
          self.song = None
 
    def checkEnd (self):
-      while self.endChecker is not None:
-         if self.song.song.get_media().get_state() == vlc.State.Ended:
+      player = self.song.song
+      endEvent = threading.Event()
+      def onMediaEnd(event):
+         endEvent.set()
+      events = player.event_manager()
+      events.event_attach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
+      try:
+         while self.endChecker is not None:
+            endEvent.wait(timeout=0.5)
+            if not endEvent.is_set():
+               continue
+            endEvent.clear()
+            if self.endChecker is None:
+               break
             if len(self.song.instructionsEnd) > 0:
                if self.song.warcry:
                   self.song.song.stop()
@@ -429,7 +441,8 @@ class PlayerManager:
                for instruction in self.song.instructionsStart:
                   instruction.run(self.song)
                continue
-         time.sleep(0.01)
+      finally:
+         events.event_detach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
 
    # if the song is currently playing or has been played, reset it
    def resetLastPlayed (self):
@@ -482,13 +495,22 @@ class PlayerManager:
             file.write(text)
 
       timerStart = time.time()
+      player = self.song.song
+      endEvent = threading.Event()
+      def onMediaEnd(event):
+         endEvent.set()
+      events = player.event_manager()
+      events.event_attach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
+      timeout = settings.config["write_song_title_log"]
       while titleThread is not None:
-         # exit loop if thread has been interrupted, song has ended, or timer has run out
-         if (not titleCheck or self.song is None or
-               self.song.song.get_media().get_state() == vlc.State.Ended or
-               (time.time() - timerStart) > settings.config["write_song_title_log"]):
+         remaining = timeout - (time.time() - timerStart)
+         if remaining <= 0:
             break
-         time.sleep(0.01)
+         endEvent.wait(timeout=min(remaining, 0.5))
+         if (not titleCheck or self.song is None or endEvent.is_set() or
+               (time.time() - timerStart) > timeout):
+            break
+      events.event_detach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
 
       # clear title.log and exit thread
       print("Write title timer thread ended.")
