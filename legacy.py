@@ -213,7 +213,9 @@ class ConditionPlayer (ConditionList):
    def pause (self, fade=None):
       # save playback position for sync-enabled goalhorns before pausing
       if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
-         _position_cache[abspath(self.songname)] = int(self.song.time_pos * 1000)
+         pos = self.song.time_pos
+         if pos is not None:
+            _position_cache[abspath(self.songname)] = int(pos * 1000)
       if fade is None:
          fade = self.type in settings.fade and settings.fade[self.type]
       # don't fade out if the song has already ended (e.g. advance/warcry)
@@ -236,7 +238,9 @@ class ConditionPlayer (ConditionList):
    def fadeOut (self):
       # save playback position for sync-enabled goalhorns before fading out
       if self.sync and self.isGoalhorn and isinstance(self.song, mpv.MPV):
-         _position_cache[abspath(self.songname)] = int(self.song.time_pos * 1000)
+         pos = self.song.time_pos
+         if pos is not None:
+            _position_cache[abspath(self.songname)] = int(pos * 1000)
       i = 100
       while i > 0:
          if self.fade == None:
@@ -417,8 +421,6 @@ class PlayerManager:
       while self.endChecker is not None:
          if self.song.song.eof_reached:
             if len(self.song.instructionsEnd) > 0:
-               if self.song.warcry:
-                  self.song.song.command("stop")
                for instruction in self.song.instructionsEnd:
                   instruction.run(self)
                break
