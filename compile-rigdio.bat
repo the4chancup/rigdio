@@ -1,1 +1,1 @@
-pyinstaller -F --noconsole --icon=rigdio.ico --add-data "rigdio.ico;." rigdio.py
+pyinstaller -F --noconsole --icon=rigdio.ico rigdio.py

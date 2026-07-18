@@ -25,7 +25,7 @@ class ChantsFrame(Frame):
       self.chantsManager = chantsManager
       # UI colour palette
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
-
+      
       # volume slider
       Label(self, text="Chants Volume").grid(columnspan=2)
       self.chantVolume = Scale(self, from_=0, to=100, orient=HORIZONTAL, command=self.chantsManager.adjustManagerVolume, showvalue=0, length = 150)
@@ -71,7 +71,7 @@ class ChantsFrame(Frame):
          self.chantsManager.endThread()
       if home:
          self.clearChantList(self.homeChantsList)
-
+         
          if self.chantsManager.homeChants:
             chants = self.chantsManager.homeChants
             # a chant button that plays a random chant when it's pressed
@@ -137,11 +137,6 @@ class ChantsButton:
       self.random = random
       colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
-      # exponential decay weighting: each chant's selection weight is
-      # decay_weight ^ times_played, so repeats become increasingly rare
-      self.decayWeight = settings.config["chant_random_decay_weight"]
-      self.playCounts = [0] * len(self.chantList)
-
       # how long a chant can be played for until it begins to fade out
       self.fadeOutTime = self.chantsManager.lastTimer
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=colours["home" if self.home else "away"])
@@ -154,12 +149,9 @@ class ChantsButton:
       elif self.random and not self.chantList:
          print("Team has no chants.")
       else:
-         # pick a chant using exponential decay weighting
+         # randomly pick a chant from the list and set as this button's chant
          if self.random:
-            weights = [self.decayWeight ** count for count in self.playCounts]
-            pick = random.choices(range(len(self.chantList)), weights=weights)[0]
-            self.playCounts[pick] += 1
-            self.chant = self.chantList[pick]
+            self.chant = random.choice(self.chantList)
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
          self.chantsManager.activeChant = self.chant
@@ -176,51 +168,33 @@ class ChantsButton:
    # checks when the chant is done or playing too long
    def checkChantDone (self):
       self.chantStart = time.time()
-      endEvent = threading.Event()
-      def onMediaEnd(event):
-         endEvent.set()
-      events = self.chant.song.event_manager()
-      events.event_attach(vlc.EventType.MediaPlayerEndReached, onMediaEnd)
-      try:
-         while self.chantEndCheck is not None:
-            # determine wait timeout based on timer setting
-            if self.chantsManager.timerEnabled:
-               remaining = self.fadeOutTime - (time.time() - self.chantStart)
-               if remaining <= 0:
-                  print("Chant timed out, fade starting.")
-                  self.chant.fade = True
-                  self.chant.fadeOut()
-                  self.chantDone()
-                  self.chantEndCheck = None
-                  break
-               waitTimeout = min(remaining, 0.5)
-            else:
-               waitTimeout = 0.5
-
-            endEvent.wait(timeout=waitTimeout)
-
-            # check if thread was asked to stop early
-            if self.chantsManager.endThreadEarly:
-               print("Chant ended early.")
-               self.chant.fade = True
-               self.chant.fadeOut()
-               self.chantsManager.endThreadEarly = False
-               if self.frame.winfo_exists():
-                  self.playButton.configure(relief=RAISED)
-                  self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
-               self.chant.fade = None
-               self.chantsManager.activeChant = None
-               self.chantEndCheck = None
-               break
-
-            # check if media ended
-            if endEvent.is_set():
-               endEvent.clear()
-               self.chantDone()
-               self.chantEndCheck = None
-               break
-      finally:
-         events.event_detach(vlc.EventType.MediaPlayerEndReached)
+      while self.chantEndCheck is not None:
+         # stops the thread early, before the song has finished playing
+         if self.chantsManager.endThreadEarly:
+            print("Chant ended early.")
+            # stops the song, resets the end thread bool, and enables the chant timer (bool reset and chant timer enable is for when new chants are loaded)
+            self.chant.fade = True
+            self.chant.fadeOut()
+            self.chantsManager.endThreadEarly = False
+            if self.frame.winfo_exists():
+               self.playButton.configure(relief=RAISED)
+               self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
+            # disables the fade, mark active chant as none, and kill the thread
+            self.chant.fade = None
+            self.chantsManager.activeChant = None
+            self.chantEndCheck = None
+         
+         if self.chant.song.get_media().get_state() == vlc.State.Ended:
+            self.chantDone()
+            self.chantEndCheck = None
+         # checks if the user is even using the timer in the first place as well
+         elif self.chantsManager.timerEnabled and (time.time() - self.chantStart) > self.fadeOutTime:
+            print("Chant timed out, fade starting.")
+            self.chant.fade = True
+            self.chant.fadeOut()
+            self.chantDone()
+            self.chantEndCheck = None
+         time.sleep(0.01)
 
    # clears out the active chant variable once the chant is over
    def chantDone (self):
@@ -282,7 +256,7 @@ class ChantsManager:
          print("No chants received for home team.")
          self.homeChants.clear()
          self.homeRandom.clear()
-
+         
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.homeRandom, True)
       self.adjustManagerVolume(self.lastVolume)
@@ -301,7 +275,7 @@ class ChantsManager:
                self.awayRandom.pop(index)
             else:
                index += 1
-
+         
          # sort the team chants alphabetically depending on user's configs
          if settings.config["alphabetical_sort_chants"]:
             self.awayChants.sort(key=lambda x : x.__str__())
@@ -313,7 +287,7 @@ class ChantsManager:
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.awayRandom, False)
       self.adjustManagerVolume(self.lastVolume)
-
+      
       if (self.window is not None):
          self.window.chantsFrame.createChants(away = True)
 
@@ -326,7 +300,7 @@ class ChantsManager:
    def disableChantTimer(self, disable, frame=None):
       if frame is None:
          return
-
+      
       frame.enableTimerCheckbox["state"] = DISABLED if disable else NORMAL
       frame.enableTimerCheckbox["fg"] = 'grey' if disable else self.colours["fg"]
       # if user is not using the timer in the first place, don't touch the text and slider
@@ -338,7 +312,7 @@ class ChantsManager:
    def adjustManagerVolume (self, value):
       # shoves all of the chants into a single list
       self.allChants = self.homeChants + self.awayChants
-
+      
       # adjusts the volume of all the chants at the same time
       for chant in self.allChants:
          chant.adjustVolume(value)
