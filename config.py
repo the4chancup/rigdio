@@ -9,6 +9,7 @@ defaults = dict(
       alphabetical_sort_goalhorns=0, # sort player goalhorns alphabetically
       alphabetical_sort_chants=0, # sort team chants alphabetically
       chant_timer_enabled_default=1, # enable chant timer by default
+      chant_random_decay_weight=0.3, # base for exponential decay weighting when picking random chants (lower = less repeat)
       dark_mode_enabled=0, # enable dark mode
       show_goalhorn_volume_default=1, # show goalhorn volume sliders by default
       write_song_title_log=0, # write a title.log file that contains the current song's title/filename before clearing it, values above 0 sets the timer
@@ -135,7 +136,8 @@ class ConfigValues:
                       'dark_mode_enabled:int',
                       'show_goalhorn_volume_default:int',
                       'write_to_log:int',
-                      'write_song_title_log:int'
+                      'write_song_title_log:int',
+                      'chant_random_decay_weight:float'
                     ]
       for item in mustBeValid:
          items = item.split(':')
@@ -145,6 +147,9 @@ class ConfigValues:
          try:
             if items[1] == "int":
                if not isinstance(entry, int):
+                  raise ValueError
+            elif items[1] == "float":
+               if not isinstance(entry, (int, float)):
                   raise ValueError
          except ValueError:
             print("config.yml error: {} must be {}; using default value {}.".format(items[0], items[1], default))

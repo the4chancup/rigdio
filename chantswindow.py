@@ -138,7 +138,8 @@ class ChantsButton:
       colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
       # exponential decay weighting: each chant's selection weight is
-      # 0.4 ^ times_played, so repeats become increasingly rare
+      # decay_weight ^ times_played, so repeats become increasingly rare
+      self.decayWeight = settings.config["chant_random_decay_weight"]
       self.playCounts = [0] * len(self.chantList)
 
       # how long a chant can be played for until it begins to fade out
@@ -155,7 +156,7 @@ class ChantsButton:
       else:
          # pick a chant using exponential decay weighting
          if self.random:
-            weights = [0.3 ** count for count in self.playCounts]
+            weights = [self.decayWeight ** count for count in self.playCounts]
             pick = random.choices(range(len(self.chantList)), weights=weights)[0]
             self.playCounts[pick] += 1
             self.chant = self.chantList[pick]
