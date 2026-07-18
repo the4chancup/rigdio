@@ -2,12 +2,11 @@ from condition import *
 from os.path import splitext
 import random, time
 
-# Cache of MediaPlayer objects keyed by absolute file path.
-# Songs with the same filename share the same MediaPlayer so that
-# playback position is preserved when switching between players.
-_media_cache = {}
-# Track which files have already been configured with input-repeat looping
-_media_looping_configured = set()
+# Cache of playback positions (in ms) keyed by absolute file path.
+# Used by sync-enabled goalhorns to preserve playback position
+# across different ConditionPlayer instances with the same filename,
+# without sharing a single MediaPlayer object (which caused concurrency bugs).
+_position_cache = {}
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
@@ -147,12 +146,7 @@ class ConditionPlayer (ConditionList):
       # songs with a set start time also require manual looping so that it loops back to the set time
       setStartTime = any(isinstance(instruction, StartInstruction) for instruction in self.instructionsStart)
       self.manualLoop = oggFormat or setStartTime
-      # hard override for events to stop them repeating
-      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
-         fullpath = abspath(songname)
-         if fullpath not in _media_looping_configured:
-            self.song.get_media().add_options("input-repeat=-1")
-            _media_looping_configured.add(fullpath)
+      self._configureLooping()
 
    def appendInstructions (self):
       for instruction in self.instructions:
@@ -164,6 +158,12 @@ class ConditionPlayer (ConditionList):
          print("Preparing {} instruction".format(instruction))
          instruction.prep(self)
 
+   def _configureLooping (self):
+      # configure native VLC looping for repeat-enabled songs;
+      # called both at init and after reloadSong since each player is separate
+      if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
+         self.song.get_media().add_options("input-repeat=-1")
+
    def loadsong(self, filename):
       print("Attempting to load "+filename)
       fullpath = abspath(filename)
@@ -172,25 +172,16 @@ class ConditionPlayer (ConditionList):
       # reason is to have rigdio check for all missing files before raising exception
       if not isfile(fullpath):
          return basename(fullpath) + " not found."
-      # only sync-enabled goalhorns use shared MediaPlayer caching (to preserve
-      # playback position across players with the same filename)
-      if self.sync and self.isGoalhorn and fullpath in _media_cache:
-         print("Reusing cached MediaPlayer for "+fullpath)
-         return _media_cache[fullpath]
       # no-video to prevent any video tracks from playing
       player = vlc.MediaPlayer("file:///"+fullpath, ":no-video")
-      if self.sync and self.isGoalhorn:
-         _media_cache[fullpath] = player
       return player
 
    def reloadSong (self):
       self.firstPlay = True
+      # clear saved position since we're resetting to the beginning
+      _position_cache.pop(abspath(self.songname), None)
       self.song = self.loadsong(self.songname)
-      # only shared (cached) MediaPlayers need stop to reset position;
-      # fresh players are already at the start
-      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
-         self.song.stop()
-         sleep(0.05)
+      self._configureLooping()
       self.instruct()
 
    def play (self):
@@ -207,6 +198,12 @@ class ConditionPlayer (ConditionList):
          if self.song.audio_get_volume() == self.maxVolume:
             break
          sleep(0.01)
+      # restore saved playback position for sync-enabled goalhorns
+      # (replaces the old shared-MediaPlayer caching approach)
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         fullpath = abspath(self.songname)
+         if fullpath in _position_cache:
+            self.song.set_time(_position_cache[fullpath])
       if self.firstPlay:
          for instruction in self.instructionsStart:
             instruction.run(self)
@@ -217,6 +214,9 @@ class ConditionPlayer (ConditionList):
       self.song.audio_set_volume(self.maxVolume)
 
    def pause (self, fade=None):
+      # save playback position for sync-enabled goalhorns before pausing
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         _position_cache[abspath(self.songname)] = self.song.get_time()
       if fade is None:
          fade = self.type in settings.fade and settings.fade[self.type]
       # don't fade out if the song has already ended (e.g. advance/warcry)
@@ -236,6 +236,9 @@ class ConditionPlayer (ConditionList):
       events.event_attach(vlc.EventType.MediaPlayerEndReached, callback)
 
    def fadeOut (self):
+      # save playback position for sync-enabled goalhorns before fading out
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         _position_cache[abspath(self.songname)] = self.song.get_time()
       i = 100
       while i > 0:
          if self.fade == None:
