@@ -417,8 +417,8 @@ class SongEditor (Frame):
          self.checkOkay = False
          # loops through the list of conditions and instructions, breaks once a randomise instruction is found
          for cond in clists[i]:
-            # do not count songs with warcry/special instructions on them
-            if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
+            # do not count songs with advance/special instructions on them
+            if cond.type() in ['randomise', 'advance', 'special']:
                self.checkOkay = True
                break
          # if no randomise instruction is found, set the value to false and break the loop
@@ -673,15 +673,15 @@ class PlayerSelectFrame (Frame):
 
    def randomiseHorns (self):
       """
-         When checked on, sets all horns of currently selected player to have only the "randomise" condition (as well as remove the 'Add Condition' button),
-         which has Rigdio randomly select a horn from the list instead of following priority. Horns which have the warcry or special instruction do not have the randomise instruction applied to them.
-         When checked off, resets all horns to have no condition.
+         When checked on, sets all horns of currently selected player to have the "randomise" condition (as well as remove the 'Add Condition' button),
+         which has Rigdio randomly select a horn from the list instead of following priority. Horns which have the advance or special instruction do not have the randomise instruction applied to them.
+         When checked off, removes the randomise instruction from all horns.
       """
       if self.randomHornVar.get() == 1:
          for row in self.songEditor.songrows:
             noAppend = False
             for cond in row.clist:
-               if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
+               if cond.type() in ['randomise', 'advance', 'special']:
                   noAppend = True
                   break
             if not noAppend:

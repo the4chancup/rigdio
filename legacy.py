@@ -290,6 +290,11 @@ class PlayerManager:
          for clist in self.clists:
             if song == clist:
                return clist
+      # if warcry mode is active, check for randomised warcry songs
+      if self.warcry:
+         warcrySongs = [c for c in self.clists if c.warcry and c is not skip]
+         if warcrySongs and all(c.randomise for c in warcrySongs):
+            return random.choice(warcrySongs)
       # iterate over songs with while loop
       i = 0
       while i < len(self.clists):
