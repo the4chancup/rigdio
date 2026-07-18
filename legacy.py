@@ -144,11 +144,9 @@ class ConditionPlayer (ConditionList):
       # append and prepare the instructions to this object
       self.appendInstructions()
       self.instruct()
-      # songs using the OGG container formats require manual looping due to OGG container issues
-      oggFormat = splitext(songname)[1].lower() in {'.opus', '.ogg', '.oga', '.ogv', '.ogx', '.spx', '.ogm'}
-      # songs with a set start time also require manual looping so that it loops back to the set time
+      # songs with a set start time require manual looping so that it loops back to the set time
       setStartTime = any(isinstance(instruction, StartInstruction) for instruction in self.instructionsStart)
-      self.manualLoop = oggFormat or setStartTime
+      self.manualLoop = setStartTime
       self._configureLooping()
 
    def _configureLooping (self):
@@ -177,7 +175,7 @@ class ConditionPlayer (ConditionList):
          return basename(fullpath) + " not found."
       # vid=False prevents video tracks; pause=True keeps file paused until play()
       # keep_open=True prevents idle mode after EOF (matches ended state behavior)
-      player = mpv.MPV(vid=False, pause=True, keep_open=True, force_window=False)
+      player = mpv.MPV(vid=False, pause=True, keep_open=True)
       player.loadfile(fullpath)
       return player
 
