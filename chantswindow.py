@@ -25,7 +25,7 @@ class ChantsFrame(Frame):
       self.chantsManager = chantsManager
       # UI colour palette
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
-      
+
       # volume slider
       Label(self, text="Chants Volume").grid(columnspan=2)
       self.chantVolume = Scale(self, from_=0, to=100, orient=HORIZONTAL, command=self.chantsManager.adjustManagerVolume, showvalue=0, length = 150)
@@ -71,7 +71,7 @@ class ChantsFrame(Frame):
          self.chantsManager.endThread()
       if home:
          self.clearChantList(self.homeChantsList)
-         
+
          if self.chantsManager.homeChants:
             chants = self.chantsManager.homeChants
             # a chant button that plays a random chant when it's pressed
@@ -137,6 +137,11 @@ class ChantsButton:
       self.random = random
       colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
+      # exponential decay weighting: each chant's selection weight is
+      # decay_weight ^ times_played, so repeats become increasingly rare
+      self.decayWeight = settings.config["chant_random_decay_weight"]
+      self.playCounts = [0] * len(self.chantList)
+
       # how long a chant can be played for until it begins to fade out
       self.fadeOutTime = self.chantsManager.lastTimer
       self.playButton = Button(frame, text=self.text, command=self.playChant, bg=colours["home" if self.home else "away"])
@@ -149,9 +154,12 @@ class ChantsButton:
       elif self.random and not self.chantList:
          print("Team has no chants.")
       else:
-         # randomly pick a chant from the list and set as this button's chant
+         # pick a chant using exponential decay weighting
          if self.random:
-            self.chant = random.choice(self.chantList)
+            weights = [self.decayWeight ** count for count in self.playCounts]
+            pick = random.choices(range(len(self.chantList)), weights=weights)[0]
+            self.playCounts[pick] += 1
+            self.chant = self.chantList[pick]
          # otherwise, set this chant as the active chant and begin playing
          self.playButton.configure(relief=SUNKEN)
          self.chantsManager.activeChant = self.chant
@@ -183,7 +191,7 @@ class ChantsButton:
             self.chant.fade = None
             self.chantsManager.activeChant = None
             self.chantEndCheck = None
-         
+
          if self.chant.song.get_media().get_state() == vlc.State.Ended:
             self.chantDone()
             self.chantEndCheck = None
@@ -256,7 +264,7 @@ class ChantsManager:
          print("No chants received for home team.")
          self.homeChants.clear()
          self.homeRandom.clear()
-         
+
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.homeRandom, True)
       self.adjustManagerVolume(self.lastVolume)
@@ -275,7 +283,7 @@ class ChantsManager:
                self.awayRandom.pop(index)
             else:
                index += 1
-         
+
          # sort the team chants alphabetically depending on user's configs
          if settings.config["alphabetical_sort_chants"]:
             self.awayChants.sort(key=lambda x : x.__str__())
@@ -287,7 +295,7 @@ class ChantsManager:
       # replaces the random chant button with the updated list of chants and set the volume back to default
       self.mainWin.replaceChantButton(self.awayRandom, False)
       self.adjustManagerVolume(self.lastVolume)
-      
+
       if (self.window is not None):
          self.window.chantsFrame.createChants(away = True)
 
@@ -300,7 +308,7 @@ class ChantsManager:
    def disableChantTimer(self, disable, frame=None):
       if frame is None:
          return
-      
+
       frame.enableTimerCheckbox["state"] = DISABLED if disable else NORMAL
       frame.enableTimerCheckbox["fg"] = 'grey' if disable else self.colours["fg"]
       # if user is not using the timer in the first place, don't touch the text and slider
@@ -312,7 +320,7 @@ class ChantsManager:
    def adjustManagerVolume (self, value):
       # shoves all of the chants into a single list
       self.allChants = self.homeChants + self.awayChants
-      
+
       # adjusts the volume of all the chants at the same time
       for chant in self.allChants:
          chant.adjustVolume(value)

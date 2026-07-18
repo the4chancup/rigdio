@@ -3,7 +3,7 @@ from os.path import basename, splitext, isfile
 from legacy import ConditionList, ConditionPlayer
 
 # reserved names
-reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event'])
+reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event', 'sync'])
 
 def parse (filename, load = True, home = True):
    """Parses a music export file and loads it into memory."""
@@ -19,7 +19,7 @@ def parse (filename, load = True, home = True):
       "victory" : "Victory Anthem",
       "chant" : "Chant"
    }
-   
+
    # open filename
    with open(filename) as f:
       lines = [line.strip() for line in f.readlines()]
@@ -34,6 +34,14 @@ def parse (filename, load = True, home = True):
       tname = splitext(basename(filename))[0]
    else:
       tname = nameline[1].lower()
+      lines = lines[1:]
+
+   # check for sync flag (defaults to yes)
+   sync = True
+   if lines and lines[0].split(';')[0].strip().lower() == "sync":
+      syncval = lines[0].split(';')[1].strip().lower()
+      sync = syncval not in ("no", "off", "false", "0")
+      print("Sync flag: {}".format("enabled" if sync else "disabled"))
       lines = lines[1:]
 
    # iterate across lines
@@ -56,14 +64,15 @@ def parse (filename, load = True, home = True):
       # if we're loading the songs, create ConditionPlayer objects
       if load:
          filename = songCheck(folder, data[1]) # check for song file, including normalised
-         songtype = ("goalhorn" if (player != "anthem" and player != "victory") else player)
+         songtype = player if player in ("anthem", "victory", "chant") else "goalhorn"
          clist = ConditionPlayer(
             pname=data[0],
             tname=tname,
             data=data[2:],
             songname=filename,
             home=home,
-            type=songtype)
+            type=songtype,
+            sync=sync)
       # otherwise, ConditionList uses less memory and doesn't make libVLC calls
       else:
          clist = ConditionList(
@@ -98,7 +107,7 @@ def parse (filename, load = True, home = True):
          if clist.event not in events:
             events[clist.event] = []
          events[clist.event].append(clist)
-   
+
    # copy default goalhorn onto the end of all player goalhorns
    if load:
       for name, conditions in players.items():

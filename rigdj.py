@@ -110,7 +110,7 @@ class SongRow:
       self.strRow = StringVar()
       # baseElements is all non-ConditionButton objects, constant across all SongRow objects
       self.baseElements = self.buildBaseElements()
-      # conditionButtons is the 
+      # conditionButtons is the
       self.conditionButtons = []
       # self.elements is a list of all elements in the row; it's baseElements + conditionButtons.
       self.elements = self.baseElements
@@ -179,13 +179,13 @@ class SongRow:
       for element in self.elements:
          element['state'] = 'normal'
          element.grid_forget()
-      
+
       # disable arrows if the row is inappropriate
       if self.row == 1:
          self.baseElements[4]['state'] = 'disabled'
       if self.row == self.songed.count():
          self.baseElements[2]['state'] = 'disabled'
-      
+
       if self.master.master.current == 'chant':
          # for chants, build only a check button to include/exclude from random playback
          self.conditionButtons = [UnrandomButton(self.master, self)]
@@ -393,12 +393,12 @@ class SongEditor (Frame):
       # load special VA section title
       self.specialLabel.grid_forget()
       self.specialLabel.grid(row=0,column=0,columnspan=999,sticky=E+W, padx=2, pady=2)
-      # use the same song row list as the regular section, they're 
+      # use the same song row list as the regular section, they're
       for index in range(len(self.songrows)):
          songrow = self.songrows[index]
          songrow.row = index+1
          songrow.update(callback=False)
-      
+
       # move the special VA new song button (using songrows guarantees it stays at the bottom of the frame)
       self.newSongButtonSpecial.grid_forget()
       self.newSongButtonSpecial.grid(row=len(self.songrows)+1,column=0,columnspan=3,sticky=E+W, padx=2, pady=2)
@@ -418,7 +418,7 @@ class SongEditor (Frame):
          # loops through the list of conditions and instructions, breaks once a randomise instruction is found
          for cond in clists[i]:
             # do not count songs with warcry/special instructions on them
-            if cond.type() in ['randomise', 'warcry', 'special']:
+            if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
                self.checkOkay = True
                break
          # if no randomise instruction is found, set the value to false and break the loop
@@ -506,7 +506,7 @@ class SongEditor (Frame):
 class PlayerSelectFrame (Frame):
    def __init__ (self, editor, command = None, players = []):
       super().__init__(editor)
-      
+
       self.newPlayerEntry = Entry(self, width=30)
       self.newPlayerEntry.grid(row=0,column=1, sticky=N+W,padx=5,pady=10)
       # songs for each player
@@ -681,7 +681,7 @@ class PlayerSelectFrame (Frame):
          for row in self.songEditor.songrows:
             noAppend = False
             for cond in row.clist:
-               if cond.type() in ['randomise', 'warcry', 'special']:
+               if cond.type() in ['randomise', 'warcry', 'advance', 'special']:
                   noAppend = True
                   break
             if not noAppend:
@@ -769,7 +769,7 @@ class Editor (Frame):
       # pack playermenu after leftFrame
       leftFrame.pack(anchor="nw",side=LEFT)
       self.playerMenu.pack(anchor="nw",side=LEFT)
-      
+
    def buildFileMenu (self):
       """
          Constructs the file save/load menu buttons.
@@ -819,7 +819,7 @@ class Editor (Frame):
       if self.teamEntry.get() == "" and outfile != self.previewer.buffer: # allow empty team name when writing to preview buffer
          messagebox.showerror("Error","Team name cannot be empty.")
          return None
-   
+
       players = self.playerMenu.songs
       flag = False
       outConvert(players)
@@ -862,7 +862,7 @@ def main ():
    # change window palette to dark mode if enabled in config
    if settings.config["dark_mode_enabled"]:
       applyDarkMode(mainWindow)
-   
+
    mainWindow.title("rigDJ {}".format(version))
    # construct editor object in window
    dj = Editor(mainWindow)

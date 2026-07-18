@@ -2,6 +2,12 @@ from condition import *
 from os.path import splitext
 import random, time
 
+# Cache of playback positions (in ms) keyed by absolute file path.
+# Used by sync-enabled goalhorns to preserve playback position
+# across different ConditionPlayer instances with the same filename,
+# without sharing a single MediaPlayer object (which caused concurrency bugs).
+_position_cache = {}
+
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
       self.pname = pname
@@ -112,11 +118,12 @@ class ConditionList:
       return output
 
 class ConditionPlayer (ConditionList):
-   def __init__ (self, pname, tname, data, songname, home, type = "goalhorn"):
+   def __init__ (self, pname, tname, data, songname, home, type = "goalhorn", sync = False):
       ConditionList.__init__(self,pname,tname,data,songname,home,False)
-      self.song = self.loadsong(songname)
       self.type = type
       self.isGoalhorn = type=="goalhorn"
+      self.sync = sync
+      self.song = self.loadsong(songname)
       self.fade = None
       self.startTime = 0
       self.customSpeed = False
@@ -139,7 +146,11 @@ class ConditionPlayer (ConditionList):
       # songs with a set start time also require manual looping so that it loops back to the set time
       setStartTime = any(isinstance(instruction, StartInstruction) for instruction in self.instructionsStart)
       self.manualLoop = oggFormat or setStartTime
-      # hard override for events to stop them repeating
+      self._configureLooping()
+
+   def _configureLooping (self):
+      # configure native VLC looping for repeat-enabled songs;
+      # called both at init and after reloadSong since each player is separate
       if self.repeat and self.event is None and isinstance(self.song, vlc.MediaPlayer) and not self.manualLoop:
          self.song.get_media().add_options("input-repeat=-1")
 
@@ -147,7 +158,7 @@ class ConditionPlayer (ConditionList):
       for instruction in self.instructions:
          print("Appending {} instruction".format(instruction))
          instruction.append(self)
-   
+
    def instruct (self):
       for instruction in self.instructions:
          print("Preparing {} instruction".format(instruction))
@@ -166,7 +177,10 @@ class ConditionPlayer (ConditionList):
 
    def reloadSong (self):
       self.firstPlay = True
+      # clear saved position since we're resetting to the beginning
+      _position_cache.pop(abspath(self.songname), None)
       self.song = self.loadsong(self.songname)
+      self._configureLooping()
       self.instruct()
 
    def play (self):
@@ -177,6 +191,12 @@ class ConditionPlayer (ConditionList):
          thread.join()
       self.song.play()
       self.song.audio_set_volume(self.maxVolume)
+      # restore saved playback position for sync-enabled goalhorns
+      # (replaces the old shared-MediaPlayer caching approach)
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         fullpath = abspath(self.songname)
+         if fullpath in _position_cache:
+            self.song.set_time(_position_cache[fullpath])
       if self.firstPlay:
          for instruction in self.instructionsStart:
             instruction.run(self)
@@ -187,9 +207,13 @@ class ConditionPlayer (ConditionList):
       self.song.audio_set_volume(self.maxVolume)
 
    def pause (self, fade=None):
+      # save playback position for sync-enabled goalhorns before pausing
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         _position_cache[abspath(self.songname)] = self.song.get_time()
       if fade is None:
          fade = self.type in settings.fade and settings.fade[self.type]
-      if fade:
+      # don't fade out if the song has already ended (e.g. advance/warcry)
+      if fade and self.song.get_media().get_state() != vlc.State.Ended:
          print("Fading out {}.".format(self.songname))
          self.fade = threading.Thread(target=self.fadeOut)
          self.fade.start()
@@ -197,12 +221,17 @@ class ConditionPlayer (ConditionList):
          for instruction in self.instructionsPause:
             instruction.run(self)
          self.song.pause()
-   
+         if self.song.get_media().get_state() == vlc.State.Ended:
+            self.reloadSong()
+
    def onEnd (self, callback):
       events = self.song.event_manager()
       events.event_attach(vlc.EventType.MediaPlayerEndReached, callback)
 
    def fadeOut (self):
+      # save playback position for sync-enabled goalhorns before fading out
+      if self.sync and self.isGoalhorn and isinstance(self.song, vlc.MediaPlayer):
+         _position_cache[abspath(self.songname)] = self.song.get_time()
       i = 100
       while i > 0:
          if self.fade == None:
@@ -248,7 +277,7 @@ class PlayerManager:
          self.song.adjustVolume(value)
       self.futureVolume = value
 
-   def getSong (self, song = None):
+   def getSong (self, song = None, skip = None):
       if song is not None:
          for clist in self.clists:
             if song == clist:
@@ -256,6 +285,10 @@ class PlayerManager:
       # iterate over songs with while loop
       i = 0
       while i < len(self.clists):
+         # skip the song that just ended (advance instruction)
+         if self.clists[i] is skip:
+            i += 1
+            continue
          # try to check the condition list
          try:
             checked = self.clists[i].check(self.game)
@@ -263,7 +296,7 @@ class PlayerManager:
          except UnloadSong:
             # disable the ConditionListPlayer, closing the song file
             self.clists[i].disable()
-            # deleted 
+            # deleted
             del self.clists[i]
             # do not increment i, self.clists[i] is now the next song; continue
             continue
@@ -304,14 +337,29 @@ class PlayerManager:
                   return self.clists[i]
          # if the song didn't succeed, move to the next
          i += 1
+      # fallback: if no valid song was found, play the first non-warcry song
+      # that isn't the skipped one (advance instruction)
+      if skip is not None:
+         i = 0
+         while i < len(self.clists):
+            if self.clists[i] is skip:
+               i += 1
+               continue
+            if not self.clists[i].warcry:
+               self.warcry = True
+               return self.clists[i]
+            i += 1
+         # final fallback: play the skipped song itself
+         self.warcry = True
+         return skip
       # if no song was found, return nothing
       return None
 
-   def playSong (self, song = None):
+   def playSong (self, song = None, skip = None):
       # don't play multiple songs at once
       self.pauseSong()
       # get the song to play
-      self.song = self.getSong(song)
+      self.song = self.getSong(song, skip)
       # if volume was stored, update it
       if self.futureVolume is not None:
          self.song.adjustVolume(self.futureVolume)
@@ -369,7 +417,7 @@ class PlayerManager:
                for instruction in self.song.instructionsEnd:
                   instruction.run(self)
                break
-            
+
             if self.song.repeat and self.song.manualLoop:
                self.song.song.stop()
                sleep(0.05)
@@ -404,7 +452,7 @@ class PlayerManager:
          titleThread = None
          titleThread = False
          return
-      
+
       # get metadata title and artist
       title = media.get_meta(vlc.Meta.Title)
       artist = media.get_meta(vlc.Meta.Artist)
@@ -438,7 +486,7 @@ class PlayerManager:
                (time.time() - timerStart) > settings.config["write_song_title_log"]):
             break
          time.sleep(0.01)
-      
+
       # clear title.log and exit thread
       print("Write title timer thread ended.")
       with open("title.log", 'w') as file:
