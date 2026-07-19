@@ -1,4 +1,4 @@
-xx/07/26 - Version vX.XX.0
+19/07/26 - Version v2.0.0
 - Migrated the media library to use MPV instead of VLC, solving several volume issues
 - Fixed anthems and goalhorns sometimes not playing after a warcry ended
 - Added fallback logic for advance instruction: plays first non-warcry song when no valid next
