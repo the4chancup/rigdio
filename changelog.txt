@@ -6,6 +6,8 @@
 - Made chant random decay weight configurable (chant_random_decay_weight in config.yml)
   Lower it to make repeats less likely, set it to 0.0 to prevent repeats completely
 - Excluded warcry goalhorns from position caching to prevent them from playing only once
+- Make the randomise condition usable on warcry goalhorns and anthems
+  This allows you to use multiple random warcries on the same player or on the victory anthem
 
 
 16/07/26 - Version v1.21.0
