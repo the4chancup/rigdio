@@ -1,1 +1,1 @@
-pyinstaller -F --noconsole --icon=rigdio.ico --add-data "rigdio.ico;." --add-binary "libmpv-2.dll;." rigdio.py
+pyinstaller -F --noconsole --icon=rigdio.ico --add-data "rigdio.ico;." rigdio.py
