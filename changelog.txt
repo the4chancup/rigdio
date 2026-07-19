@@ -1,3 +1,13 @@
+xx/07/26 - Version vX.XX.0
+- Migrated the media library to use MPV instead of VLC, solving several volume issues
+- Fixed anthems and goalhorns sometimes not playing after a warcry ended
+- Added fallback logic for advance instruction: plays first non-warcry song when no valid next
+  song is found, preventing silence after advance fails
+- Made chant random decay weight configurable (chant_random_decay_weight in config.yml)
+  Lower it to make repeats less likely, set it to 0.0 to prevent repeats completely
+- Excluded warcry goalhorns from position caching to prevent them from playing only once
+
+
 16/07/26 - Version v1.21.0
 - Added "advance" instruction: when a song ends, plays the next valid goalhorn instead of looping or
   stopping
