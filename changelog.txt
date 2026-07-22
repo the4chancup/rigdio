@@ -1,4 +1,9 @@
 23/07/26
+- Reworked volume sliders to use perceptual dB scaling instead of raw values
+  Slider now feels linear to the ear instead of dropping off too quickly at low values
+- Volume sliders now go up to 200, allowing boosting quiet audio files up to +20 dB
+- Default volume changed from 80 to 100 (0 dB unity gain)
+- Volume slider knob now changes color from purple to red based on volume level
 - Added "Reset" buttons below the Load Team buttons
   Stops all music, resets chants, events, and score for that team so they can be loaded fresh
   Useful when a team is suddenly scheduled for another match

@@ -1,5 +1,6 @@
 from tkinter import *
 from config import settings
+from rigdio_util import volumeColor
 
 import os.path, threading, time, random
 
@@ -28,8 +29,9 @@ class ChantsFrame(Frame):
 
       # volume slider
       Label(self, text="Chants Volume").grid(columnspan=2)
-      self.chantVolume = Scale(self, from_=0, to=100, orient=HORIZONTAL, command=self.chantsManager.adjustManagerVolume, showvalue=0, length = 150)
+      self.chantVolume = Scale(self, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, length = 150, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
       self.chantVolume.set(self.chantsManager.lastVolume)
+      self.chantVolume.configure(bg=volumeColor(self.chantsManager.lastVolume), activebackground=volumeColor(self.chantsManager.lastVolume))
       self.chantVolume.grid(columnspan=2)
       # blank space between the sliders and chant buttons to separate them, make it look nicer
       Label(self, text=None).grid(columnspan=2)
@@ -64,6 +66,11 @@ class ChantsFrame(Frame):
       # chants lists to replace buttons when new chants are loaded
       self.homeChantsList, self.awayChantsList = list(), list()
       self.createChants(self.chantsManager.homeChants, self.chantsManager.awayChants)
+
+   def _volumeCommand (self, value):
+      self.chantsManager.adjustManagerVolume(value)
+      color = volumeColor(int(value))
+      self.chantVolume.configure(bg=color, activebackground=color)
 
    # creates the chant buttons
    def createChants (self, home = False, away = False):
@@ -231,7 +238,7 @@ class ChantsManager:
 
       # default settings for chant timer and volume
       self.lastTimer = 30
-      self.lastVolume = 80
+      self.lastVolume = 100
 
       # chant that is currently being played
       self.activeChant = None

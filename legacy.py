@@ -137,7 +137,7 @@ class ConditionPlayer (ConditionList):
       self.instructionsStart = []
       self.instructionsPause = []
       self.instructionsEnd = []
-      self.maxVolume = 80
+      self.maxVolume = 100
       # repetition settings; may be changed by instructions
       norepeat = set(["victory","chant"])
       self.repeat = (pname not in norepeat)
@@ -175,7 +175,7 @@ class ConditionPlayer (ConditionList):
          return basename(fullpath) + " not found."
       # vid=False prevents video tracks; pause=True keeps file paused until play()
       # keep_open=True prevents idle mode after EOF (matches ended state behavior)
-      player = mpv.MPV(vid=False, pause=True, keep_open=True)
+      player = mpv.MPV(vid=False, pause=True, keep_open=True, volume_max=220)
       player.loadfile(fullpath)
       return player
 
@@ -194,7 +194,7 @@ class ConditionPlayer (ConditionList):
          self.fade = None
          thread.join()
       self.song.pause = False
-      self.song.volume = self.maxVolume
+      self.song.volume = self._toMpvVolume(self.maxVolume)
       # restore saved playback position for sync-enabled goalhorns
       if self.sync and self.isGoalhorn and not self.warcry and isinstance(self.song, mpv.MPV):
          fullpath = abspath(self.songname)
@@ -205,9 +205,22 @@ class ConditionPlayer (ConditionList):
             instruction.run(self)
          self.firstPlay = False
 
+   def _toMpvVolume (self, sliderValue):
+      # Convert slider value (0-200, 100=unity) to mpv's cubic volume scale.
+      # mpv applies gain as (volume/100)^3, so to get a desired dB gain:
+      #   gain = 10^(dB/20), volume = 100 * gain^(1/3) = 100 * 10^(dB/60)
+      # Slider 0→-20dB (quiet), 100→0dB (unity), 200→+20dB (10x boost)
+      if sliderValue <= 0:
+         return 0
+      if sliderValue <= 100:
+         dB = -20 * (1 - sliderValue / 100)
+      else:
+         dB = 20 * (sliderValue - 100) / 100
+      return 100 * 10 ** (dB / 60)
+
    def adjustVolume (self, value):
       self.maxVolume = int(value)
-      self.song.volume = self.maxVolume
+      self.song.volume = self._toMpvVolume(self.maxVolume)
 
    def pause (self, fade=None):
       # save playback position for sync-enabled goalhorns before pausing
@@ -241,10 +254,11 @@ class ConditionPlayer (ConditionList):
          if pos is not None:
             _position_cache[abspath(self.songname)] = int(pos * 1000)
       i = 100
+      mpvVol = self._toMpvVolume(self.maxVolume)
       while i > 0:
          if self.fade == None:
             break
-         volume = int(self.maxVolume * i/100)
+         volume = int(mpvVol * i/100)
          self.song.volume = volume
          sleep(settings.fade["time"]/100)
          i -= 1
@@ -253,7 +267,7 @@ class ConditionPlayer (ConditionList):
       self.song.pause = True
       if self.song.eof_reached:
          self.reloadSong()
-      self.song.volume = self.maxVolume
+      self.song.volume = self._toMpvVolume(self.maxVolume)
       self.fade = None
 
    def disable (self):
@@ -433,7 +447,7 @@ class PlayerManager:
                self.song.song.time_pos = 0
                sleep(0.05)
                self.song.song.pause = False
-               self.song.song.volume = self.song.maxVolume
+               self.song.song.volume = self.song._toMpvVolume(self.song.maxVolume)
                for instruction in self.song.instructionsStart:
                   instruction.run(self.song)
                continue

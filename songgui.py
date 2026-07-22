@@ -5,6 +5,7 @@ from rigparse import reserved
 from rigdio_except import UnloadSong, SongNotFound
 from legacy import PlayerManager
 from config import settings
+from rigdio_util import volumeColor
 from time import sleep
 
 class PlayerButtons:
@@ -40,8 +41,9 @@ class PlayerButtons:
       self.volumeButton = Button(self.frame, text="🔊", command=self.showHideVolume, bg=self.colours["home" if home else "away"])
       self.playButton = Button(self.frame, text=self.text, command=self.playSong, bg=self.colours["home" if home else "away"])
       self.resetButton = Button(self.frame, text="⟲", command=self.resetSong, bg=self.colours["home" if home else "away"])
-      self.volume = Scale(self.frame, from_=0, to=100, orient=HORIZONTAL, command=self.clists.adjustVolume, showvalue=0)
-      self.volume.set(80)
+      self.volume = Scale(self.frame, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
+      self.volume.set(100)
+      self.volume.configure(bg=volumeColor(100), activebackground=volumeColor(100))
 
       self.dropdownButton = None
       if self.victoryAnthem:
@@ -54,6 +56,11 @@ class PlayerButtons:
       else:
          self.volume.grid()
          self.showVolume = True
+
+   def _volumeCommand (self, value):
+      self.clists.adjustVolume(value)
+      color = volumeColor(int(value))
+      self.volume.configure(bg=color, activebackground=color)
 
    def resetSong (self):
       self.clists.resetLastPlayed()
