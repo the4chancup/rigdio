@@ -62,6 +62,12 @@ class PlayerButtons:
       if self.victoryAnthem:
          self.timer.resetTimer()
 
+   def reset (self):
+      self.clists.reset()
+      self.playButton.configure(relief=RAISED)
+      if self.victoryAnthem:
+         self.timer.resetTimer()
+
    def playSong (self):
       # if home team anthem, pause away team anthem
       if self.anthem and self.awayButtonHook != None:
@@ -287,6 +293,10 @@ class TeamMenuLegacy (Frame):
       for player in self.players.keys():
          for clist in self.players[player]:
             clist.disable()
+
+   def reset (self):
+      for button in self.buttons:
+         button.reset()
 
    def goNuclear(self):
       for playerButton in self.buttons:

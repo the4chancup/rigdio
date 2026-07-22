@@ -147,6 +147,17 @@ class GameState:
             self.away_scorers = {}
             self.clearButtonFlags()
 
+   def clearTeam (self, home):
+      """Resets the score and scorers for a single team."""
+      mutex = self.mutex["home" if home else "away"]
+      with mutex:
+         if home:
+            self.home_score = 0
+            self.home_scorers = {}
+         else:
+            self.away_score = 0
+            self.away_scorers = {}
+
    def clearButtonFlags (self):
       with self.mutex["flags"]:
          self.time = None

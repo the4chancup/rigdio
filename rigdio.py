@@ -63,8 +63,14 @@ class Rigdio (Frame):
       # UI colour palette
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
       # file menu
-      Button(self, text="Load Home Team", command=self.loadFile, bg=self.colours["home"]).grid(row=0, column=0)
-      Button(self, text="Load Away Team", command=lambda: self.loadFile(False), bg=self.colours["away"]).grid(row=0, column=2)
+      homeButtons = Frame(self)
+      Button(homeButtons, text="Load Home Team", command=self.loadFile, bg=self.colours["home"]).pack(fill=X)
+      Button(homeButtons, text="Reset", command=self.resetTeam, bg=self.colours["stop"]).pack()
+      homeButtons.grid(row=0, column=0)
+      awayButtons = Frame(self)
+      Button(awayButtons, text="Load Away Team", command=lambda: self.loadFile(False), bg=self.colours["away"]).pack(fill=X)
+      Button(awayButtons, text="Reset", command=lambda: self.resetTeam(False), bg=self.colours["stop"]).pack()
+      awayButtons.grid(row=0, column=2)
       # score widget
       self.scoreWidget = ScoreWidget(self, self.game)
       self.game.widget = self.scoreWidget
@@ -260,6 +266,37 @@ class Rigdio (Frame):
          if self.events is not None:
             self.events.setAway(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
+
+   def resetTeam (self, home = True):
+      team = self.home if home else self.away
+      if team is None:
+         print("No {} team loaded to reset.".format("home" if home else "away"))
+         return
+      confirm = messagebox.askyesno("Reset Team",
+         "Reset everything the {} team is currently using? This will stop their music, clear their chants and events, and reset their score.".format("home" if home else "away"),
+         icon='warning')
+      if not confirm:
+         return
+      # stop any active chant from this team
+      if self.chantsManager.activeChant is not None:
+         self.chantsManager.endThread()
+      # in-place reset of all music buttons (pauses songs, seeks to 0, resets warcry/firstPlay)
+      team.reset()
+      # re-enable the playback speed slider in case a song was playing
+      self.disablePlaybackSpeedSlider(False)
+      # rebuild chant random lists from existing chants (no file reloading)
+      chants = self.chantsManager.homeChants if home else self.chantsManager.awayChants
+      if home:
+         self.chantsManager.setHome(parsed=chants)
+      else:
+         self.chantsManager.setAway(parsed=chants)
+      # reset event last-played times
+      self.events.reset(home)
+      # reset the score for this team
+      self.game.clearTeam(home)
+      # update the score widget
+      self.scoreWidget.updateScore()
+      print("{} team reset.".format("Home" if home else "Away"))
 
    def loadFile (self, home = True):
       f = filedialog.askopenfilename(filetypes = (("Rigdio export files", "*.4ccm"),("All files","*.*")))

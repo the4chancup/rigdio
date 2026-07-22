@@ -446,6 +446,18 @@ class PlayerManager:
          self.lastSong.song.command("stop")
          self.lastSong.reloadSong()
 
+   # in-place reset: pauses any playing song and seeks it back to the start
+   # without reloading the physical file
+   def reset (self):
+      if self.song is not None:
+         self.pauseSong()
+      if self.lastSong is not None:
+         self.lastSong.song.time_pos = 0
+         self.lastSong.firstPlay = True
+         _position_cache.pop(abspath(self.lastSong.songname), None)
+         self.lastSong = None
+      self.warcry = True
+
    # writes currently playing song's details to title.log, clearing it after a set amount of time
    def writeTitleLog (self):
       print("Write title timer thread started.")
