@@ -20,6 +20,7 @@ defaults = dict(
       anthem=True,
       goalhorn=True,
       chant=True,
+      victory=True,
       time=2
    ),
    lightColours=dict(
