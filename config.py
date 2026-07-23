@@ -130,15 +130,15 @@ class ConfigValues:
    def checkConfig(self):
       recursiveDictCheck(self.configs, defaults["config"], "config.yml")
       mustBeValid = [
-                      'alphabetical_sort_goalhorns:int',
-                      'alphabetical_sort_chants:int',
-                      'chant_timer_enabled_default:int',
-                      'dark_mode_enabled:int',
-                      'show_goalhorn_volume_default:int',
-                      'write_to_log:int',
-                      'write_song_title_log:int',
-                      'chant_random_decay_weight:float'
-                    ]
+         'alphabetical_sort_goalhorns:int',
+         'alphabetical_sort_chants:int',
+         'chant_timer_enabled_default:int',
+         'dark_mode_enabled:int',
+         'show_goalhorn_volume_default:int',
+         'write_to_log:int',
+         'write_song_title_log:int',
+         'chant_random_decay_weight:float'
+      ]
       for item in mustBeValid:
          items = item.split(':')
          entry = self.configs[items[0]]
