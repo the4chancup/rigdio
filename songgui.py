@@ -38,12 +38,17 @@ class PlayerButtons:
       self.showVolume = True
       # text was specified, so this is a button for a reserved keyword
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
-      self.volumeButton = Button(self.frame, text="🔊", command=self.showHideVolume, bg=self.colours["home" if home else "away"])
+      self.normalize = settings.config["normalize_volume"]
+      if self.normalize:
+         self.volumeButton = None
+         self.volume = None
+      else:
+         self.volumeButton = Button(self.frame, text="🔊", command=self.showHideVolume, bg=self.colours["home" if home else "away"])
+         self.volume = Scale(self.frame, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
+         self.volume.set(100)
+         self.volume.configure(bg=volumeColor(100), activebackground=volumeColor(100))
       self.playButton = Button(self.frame, text=self.text, command=self.playSong, bg=self.colours["home" if home else "away"])
       self.resetButton = Button(self.frame, text="⟲", command=self.resetSong, bg=self.colours["home" if home else "away"])
-      self.volume = Scale(self.frame, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
-      self.volume.set(100)
-      self.volume.configure(bg=volumeColor(100), activebackground=volumeColor(100))
 
       self.dropdownButton = None
       if self.victoryAnthem:
@@ -129,14 +134,16 @@ class PlayerButtons:
       messagebox.showinfo(title, text)
 
    def insert (self, row):
-      self.volumeButton.grid(row=row,column=0,sticky=N+S,padx=2,pady=(5,0))
+      if self.volumeButton is not None:
+         self.volumeButton.grid(row=row,column=0,sticky=N+S,padx=2,pady=(5,0))
       if self.dropdownButton is not None:
          self.playButton.grid(row=row,column=1,sticky=NE+SW,padx=(2,0),pady=(5,0))
          self.dropdownButton.grid(row=row,column=2,sticky=NS+W,pady=(5,0))
       else:
          self.playButton.grid(row=row,column=1,columnspan=2,sticky=NE+SW,padx=2,pady=(5,0))
       self.resetButton.grid(row=row,column=3,sticky=N+S,padx=2,pady=(5,0))
-      self.volume.grid(row=row+1,column=0,columnspan=4,sticky=E+W,pady=(0,5))
+      if self.volume is not None:
+         self.volume.grid(row=row+1,column=0,columnspan=4,sticky=E+W,pady=(0,5))
 
    # change what song the VA button will play (default/special)
    def changeVA (self, *args):
@@ -253,7 +260,8 @@ class TeamMenuLegacy (Frame):
       # buttons for goalhorns
       self.buildGoalhornMenu(startRow)
       # show/hide the volume sliders for goalhorns depending on user's configs
-      if not settings.config["show_goalhorn_volume_default"]:
+      # (skipped when normalize_volume is enabled — no individual sliders exist)
+      if not settings.config["normalize_volume"] and not settings.config["show_goalhorn_volume_default"]:
          for button in self.buttons:
             button.volume.grid_remove()
             button.showVolume = False

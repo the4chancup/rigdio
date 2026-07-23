@@ -1,11 +1,12 @@
 from os import listdir
 from os.path import basename, splitext, isfile
-from legacy import ConditionList, ConditionPlayer
+from legacy import ConditionList, ConditionPlayer, preanalyze_loudness
+from config import settings
 
 # reserved names
 reserved = set(['anthem', 'victory', 'goal', 'name', 'chant', ';event', 'sync'])
 
-def parse (filename, load = True, home = True):
+def parse (filename, load = True, home = True, progress_callback=None):
    """Parses a music export file and loads it into memory."""
    # get location of folder
    folder = '/'.join(filename.split('/')[0:-1])+'/'
@@ -45,6 +46,27 @@ def parse (filename, load = True, home = True):
       lines = lines[1:]
 
    # iterate across lines
+   # pre-pass: collect all song filenames (for loudness analysis and/or song count)
+   if load:
+      pre_files = []
+      for line in lines:
+         if len(line) == 0 or line[0] == "#":
+            continue
+         data = line.split(';')
+         data = [x.strip() for x in data]
+         player = data[0]
+         if len(data) == 1:
+            default = "{} - {}.mp3" if player in reserved else "{} - {} Goalhorn.mp3"
+            fancyname = filenames[player] if player in reserved else player
+            default = default.format(tname, fancyname)
+            data.append(default)
+         pre_files.append(songCheck(folder, data[1]))
+      song_count = len(pre_files)
+      if progress_callback:
+         progress_callback(-2, song_count)
+      if settings.config["normalize_volume"]:
+         preanalyze_loudness(pre_files, settings.level["target"], progress_callback)
+   # main pass: create ConditionPlayer objects
    for line in lines:
       # ignore comments
       if len(line) == 0 or line[0] == "#":
@@ -73,6 +95,8 @@ def parse (filename, load = True, home = True):
             home=home,
             type=songtype,
             sync=sync)
+         if progress_callback:
+            progress_callback(-1, -1)
       # otherwise, ConditionList uses less memory and doesn't make mpv calls
       else:
          clist = ConditionList(

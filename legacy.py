@@ -1,15 +1,89 @@
 from condition import *
 from os.path import splitext, dirname, abspath
-import os, sys
+import os
+import sys
 os.environ["PATH"] = dirname(abspath(sys.argv[0])) + os.pathsep + os.environ["PATH"]
 import mpv
-import random, time
+import random
+import time
+import subprocess
+import re
+from concurrent.futures import ThreadPoolExecutor
+from config import settings
 
 # Cache of playback positions (in ms) keyed by absolute file path.
 # Used by sync-enabled goalhorns to preserve playback position
 # across different ConditionPlayer instances with the same filename,
 # without sharing a single MediaPlayer object (which caused concurrency bugs).
 _position_cache = {}
+
+# Cache of loudness analysis results keyed by absolute file path.
+# Populated by preanalyze_loudness so that loadsong doesn't re-run ffmpeg.
+_loudness_cache = {}
+
+def analyze_loudness(filepath, target_db):
+   """Analyze audio loudness using ffmpeg volumedetect and calculate gain needed
+   to reach target_db. Returns (gain_db, needs_limiter) or (None, False) on failure.
+   A limiter is needed when the full gain would cause peak clipping."""
+   fullpath = abspath(filepath)
+   if fullpath in _loudness_cache:
+      return _loudness_cache[fullpath]
+   try:
+      kwargs = dict(capture_output=True, text=True, errors="replace", timeout=30)
+      if os.name == "nt":
+         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+      result = subprocess.run(
+         ["ffmpeg", "-i", fullpath, "-af", "volumedetect", "-f", "null", "-"],
+         **kwargs
+      )
+      stderr = result.stderr
+      mean_match = re.search(r"mean_volume:\s*(-?[\d.]+)\s*dB", stderr)
+      max_match = re.search(r"max_volume:\s*(-?[\d.]+)\s*dB", stderr)
+      if not mean_match or not max_match:
+         print("   Could not parse volumedetect output for {}".format(fullpath))
+         result = (None, False)
+         _loudness_cache[fullpath] = result
+         return result
+      mean_db = float(mean_match.group(1))
+      max_db = float(max_match.group(1))
+      gain = target_db - mean_db
+      needs_limiter = (max_db + gain) > 0.0
+      if needs_limiter:
+         print("   File has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain with limiter.".format(
+            mean_db, max_db, target_db, gain))
+      else:
+         print("   File has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain.".format(
+            mean_db, max_db, target_db, gain))
+      result = (gain, needs_limiter)
+      _loudness_cache[fullpath] = result
+      return result
+   except FileNotFoundError:
+      print("   ffmpeg not found, skipping normalization for {}".format(fullpath))
+      return None, False
+   except Exception as e:
+      print("   Error analyzing loudness for {}: {}".format(fullpath, e))
+      return None, False
+
+def preanalyze_loudness(filepaths, target_db, progress_callback=None):
+   """Run analyze_loudness for all file paths in parallel, populating the cache.
+   Call this before creating ConditionPlayers to avoid sequential ffmpeg calls.
+   If progress_callback is provided, it is called as (completed, total) after each file."""
+   unique = set(abspath(f) for f in filepaths if isfile(abspath(f)))
+   to_analyze = [f for f in unique if f not in _loudness_cache]
+   total = len(to_analyze)
+   if not to_analyze:
+      if progress_callback:
+         progress_callback(0, 0)
+      return
+   print("Pre-analyzing loudness for {} file(s) in parallel...".format(total))
+   completed = 0
+   if progress_callback:
+      progress_callback(0, total)
+   with ThreadPoolExecutor(max_workers=min(8, total)) as executor:
+      for _ in executor.map(lambda f: analyze_loudness(f, target_db), to_analyze):
+         completed += 1
+         if progress_callback:
+            progress_callback(completed, total)
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
@@ -138,6 +212,7 @@ class ConditionPlayer (ConditionList):
       self.instructionsPause = []
       self.instructionsEnd = []
       self.maxVolume = 100
+      self.normalize_gain = None
       # repetition settings; may be changed by instructions
       norepeat = set(["victory","chant"])
       self.repeat = (pname not in norepeat)
@@ -176,6 +251,17 @@ class ConditionPlayer (ConditionList):
       # vid=False prevents video tracks; pause=True keeps file paused until play()
       # keep_open=True prevents idle mode after EOF (matches ended state behavior)
       player = mpv.MPV(vid=False, pause=True, keep_open=True, volume_max=220)
+      # normalize volume if enabled in config
+      if settings.config["normalize_volume"]:
+         gain, needs_limiter = analyze_loudness(fullpath, settings.level["target"])
+         if gain is not None:
+            if needs_limiter:
+               player.af = "volume={:.1f}dB,alimiter=limit=0.95".format(gain)
+            else:
+               player.af = "volume={:.1f}dB".format(gain)
+            self.normalize_gain = gain
+            print("   Normalized {} with {:.1f} dB gain{}".format(
+               basename(fullpath), gain, " + limiter" if needs_limiter else ""))
       player.loadfile(fullpath)
       return player
 

@@ -27,14 +27,17 @@ class ChantsFrame(Frame):
       # UI colour palette
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
 
-      # volume slider
-      Label(self, text="Chants Volume").grid(columnspan=2)
-      self.chantVolume = Scale(self, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, length = 150, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
-      self.chantVolume.set(self.chantsManager.lastVolume)
-      self.chantVolume.configure(bg=volumeColor(self.chantsManager.lastVolume), activebackground=volumeColor(self.chantsManager.lastVolume))
-      self.chantVolume.grid(columnspan=2)
-      # blank space between the sliders and chant buttons to separate them, make it look nicer
-      Label(self, text=None).grid(columnspan=2)
+      # volume slider (hidden when normalize_volume is enabled — master slider controls chants)
+      if not settings.config["normalize_volume"]:
+         Label(self, text="Chants Volume").grid(columnspan=2)
+         self.chantVolume = Scale(self, from_=0, to=200, orient=HORIZONTAL, command=self._volumeCommand, showvalue=0, length = 150, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
+         self.chantVolume.set(self.chantsManager.lastVolume)
+         self.chantVolume.configure(bg=volumeColor(self.chantsManager.lastVolume), activebackground=volumeColor(self.chantsManager.lastVolume))
+         self.chantVolume.grid(columnspan=2)
+         # blank space between the sliders and chant buttons to separate them, make it look nicer
+         Label(self, text=None).grid(columnspan=2)
+      else:
+         self.chantVolume = None
 
       # chant timer checkbox, for if the user doesn't want to use it
       # set the checkbox default state depending on user's configs
@@ -115,7 +118,8 @@ class ChantsFrame(Frame):
                self.awayChantsList.append(self.chantsButton)
                self.chantsButton.insert(i+9)
       # so that any newly loaded chants follow the current slider value instead of the default
-      self.chantsManager.adjustManagerVolume(self.chantVolume.get())
+      vol = self.chantVolume.get() if self.chantVolume is not None else self.chantsManager.lastVolume
+      self.chantsManager.adjustManagerVolume(vol)
 
    # clears out chants in the window
    def clearChantList (self, chantList):
@@ -331,7 +335,7 @@ class ChantsManager:
       # adjusts the volume of all the chants at the same time
       for chant in self.allChants:
          chant.adjustVolume(value)
-      self.lastVolume = value
+      self.lastVolume = int(value)
 
    def adjustTimer (self, value):
       # shoves all of the chant buttons (including the random ones) into a single list

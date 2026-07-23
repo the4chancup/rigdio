@@ -1,4 +1,5 @@
 import sys
+import threading
 from os.path import isfile, join, abspath, splitext
 
 from tkinter import *
@@ -13,6 +14,7 @@ from gamestate import GameState
 from songgui import *
 from version import rigdio_version as version
 from rigdj_util import setMaxWidth
+from rigdio_util import volumeColor
 from event import EventController
 import chantswindow as cWin
 import legacy
@@ -60,6 +62,7 @@ class Rigdio (Frame):
       self.game = GameState(instance=self)
       self.home = None
       self.away = None
+      self.masterVolumeValue = 100
       # UI colour palette
       self.colours = settings.darkColours if settings.config["dark_mode_enabled"] else settings.lightColours
       # file menu
@@ -115,6 +118,15 @@ class Rigdio (Frame):
       self.playbackSpeedMenu = Scale(self.middleStuff, from_=0.25, to=4.00, orient=HORIZONTAL, command=NONE, resolution=0.25, showvalue=1, digits=3)
       self.playbackSpeedMenu.set(1.00)
       self.playbackSpeedMenu.grid(columnspan=2)
+      # master volume slider (only shown when normalize_volume is enabled)
+      if settings.config["normalize_volume"]:
+         Label(self.middleStuff, text="Master Volume").grid(columnspan=2)
+         self.masterVolume = Scale(self.middleStuff, from_=0, to=200, orient=HORIZONTAL, command=self.adjustMasterVolume, showvalue=0, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
+         self.masterVolume.set(100)
+         self.masterVolume.configure(bg=volumeColor(100), activebackground=volumeColor(100))
+         self.masterVolume.grid(columnspan=2)
+      else:
+         self.masterVolume = None
       # creates chants window and manager
       self.chantswindow = None
       self.chantsManager = cWin.ChantsManager(self.chantswindow, self)
@@ -159,6 +171,22 @@ class Rigdio (Frame):
          self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
          self.playbackSpeedMenu["fg"] = 'grey' if disable else self.colours["fg"]
 
+   # master volume control — adjusts volume on all loaded songs and chants
+   def adjustMasterVolume (self, value):
+      value = int(value)
+      self.masterVolumeValue = value
+      # adjust all player buttons on both teams
+      for team in (self.home, self.away):
+         if team is not None:
+            for button in team.buttons:
+               button.clists.adjustVolume(value)
+      # adjust all chants
+      self.chantsManager.adjustManagerVolume(value)
+      # update slider color
+      if self.masterVolume is not None:
+         color = volumeColor(value)
+         self.masterVolume.configure(bg=color, activebackground=color)
+
    def replaceChantButton (self, chantsList, home):
       if home:
          self.randomHome.playButton.destroy()
@@ -195,17 +223,92 @@ class Rigdio (Frame):
 
    def legacyLoad (self, f, home):
       print("Loading music instructions from {}.".format(f))
-      try:
-         tmusic, tname, events = parseLegacy(f,home=home)
-      except AttributeError as e:
-         messagebox.showerror("AttributeError on file load.","Did you download rigdio.exe instead of rigdio.7z? Make sure that the mpv DLL is present.")
-         raise e
-      except UnicodeDecodeError as e:
-         messagebox.showerror("UnicodeDecodeError on file load.","Are any of your file names using weeb/non-unicode characters? Make sure they are using only unicode characters.")
-         raise e
-      except Exception as e:
-         messagebox.showerror("Exception on file load.", e)
-         raise e
+      # create a loading progress window
+      loadWin = Toplevel(self)
+      loadWin.title("Loading")
+      loadWin.resizable(False, False)
+      loadWin.transient(self)
+      loadLabel = Label(loadWin, text="Loading team export...", padx=20, pady=10)
+      loadLabel.pack()
+      barWidth = 300
+      barHeight = 20
+      loadBar = Canvas(loadWin, width=barWidth, height=barHeight, bg='#c8c8c8', highlightthickness=0)
+      loadBar.pack(padx=20, pady=5)
+      loadStatus = Label(loadWin, text="", padx=20, pady=10)
+      loadStatus.pack()
+      # grab focus so user can't interact with main window
+      loadWin.grab_set()
+      loadWin.update()
+
+      # shared state between threads
+      state = {"result": None, "error": None, "done": False,
+               "phase": 0, "completed": 0, "total": 0, "songs_loaded": 0, "songs_total": 0}
+
+      def progress_callback(completed, total):
+         if completed == -2:
+            # set phase 2 total (song count from pre-pass)
+            state["songs_total"] = total
+         elif completed == -1:
+            # phase 2: a song was loaded
+            state["phase"] = 2
+            state["songs_loaded"] += 1
+         else:
+            # phase 1: loudness analysis
+            state["phase"] = 1
+            state["completed"] = completed
+            state["total"] = total
+
+      def worker():
+         try:
+            result = parseLegacy(f, home=home, progress_callback=progress_callback)
+            state["result"] = result
+         except Exception as e:
+            state["error"] = e
+         state["done"] = True
+
+      thread = threading.Thread(target=worker, daemon=True)
+      thread.start()
+
+      def poll():
+         if state["done"]:
+            loadWin.grab_release()
+            loadWin.destroy()
+            if state["error"] is not None:
+               e = state["error"]
+               if isinstance(e, AttributeError):
+                  messagebox.showerror("AttributeError on file load.","Did you download rigdio.exe instead of rigdio.7z? Make sure that the mpv DLL is present.")
+               elif isinstance(e, UnicodeDecodeError):
+                  messagebox.showerror("UnicodeDecodeError on file load.","Are any of your file names using weeb/non-unicode characters? Make sure they are using only unicode characters.")
+               else:
+                  messagebox.showerror("Exception on file load.", e)
+               raise e
+            self._finishLegacyLoad(f, home, state["result"])
+            return
+         # update progress UI
+         loadBar.delete("all")
+         if state["phase"] == 1 and state["total"] > 0:
+            fillW = int(barWidth * state["completed"] / state["total"])
+            loadBar.create_rectangle(0, 0, fillW, barHeight, fill='#e8c800', outline='')
+            loadStatus["text"] = "Analyzing loudness... {}/{}".format(state["completed"], state["total"])
+         elif state["phase"] == 2:
+            # yellow stays full bar; green overlaps from start based on its own progress
+            if state["total"] > 0:
+               loadBar.create_rectangle(0, 0, barWidth, barHeight, fill='#e8c800', outline='')
+            if state["songs_total"] > 0:
+               greenW = int(barWidth * state["songs_loaded"] / state["songs_total"])
+               loadBar.create_rectangle(0, 0, greenW, barHeight, fill='#22aa22', outline='')
+               loadStatus["text"] = "Loading songs... {}/{}".format(state["songs_loaded"], state["songs_total"])
+            else:
+               loadStatus["text"] = "Loading songs... {}".format(state["songs_loaded"])
+         elif state["phase"] == 0 and state["songs_total"] > 0:
+            # pre-pass done, no analysis phase (normalize off) — show empty bar ready for green
+            loadStatus["text"] = "Loading songs... 0/{}".format(state["songs_total"])
+         self.after(50, poll)
+
+      self.after(50, poll)
+
+   def _finishLegacyLoad (self, f, home, result):
+      tmusic, tname, events = result
       # retrieve list of song files that could not be found
       # (song as a string instead of MediaPlayer indicates file is missing)
       missing = [
@@ -233,6 +336,10 @@ class Rigdio (Frame):
          if self.away is not None:
             self.home.anthemButton.awayButtonHook = self.away.anthemButton
          self.home.grid(row = 1, column = 0, rowspan=2, sticky=N)
+         # apply master volume to newly loaded team if normalize_volume is enabled
+         if settings.config["normalize_volume"]:
+            for button in self.home.buttons:
+               button.clists.adjustVolume(self.masterVolumeValue)
          if self.chantsManager is not None:
             if "chant" in tmusic and tmusic["chant"] is not None:
                print("Got {} chants for team /{}/.".format(len(tmusic["chant"]), tname))
@@ -254,6 +361,10 @@ class Rigdio (Frame):
          if self.home is not None:
             self.home.anthemButton.awayButtonHook = self.away.anthemButton
          self.away.grid(row = 1, column = 2, rowspan=2, sticky=N)
+         # apply master volume to newly loaded team if normalize_volume is enabled
+         if settings.config["normalize_volume"]:
+            for button in self.away.buttons:
+               button.clists.adjustVolume(self.masterVolumeValue)
          if self.chantsManager is not None:
             if "chant" in tmusic and tmusic["chant"] is not None:
                print("Got {} chants for team /{}/.".format(len(tmusic["chant"]), tname))
