@@ -13,6 +13,7 @@ def timeToSeconds(time):
       return None
 
 def volumeColor(value, vmax=200):
+   value = int(value)
    # Map slider value to a hue from 270° (purple) at 0 to 0° (red) at vmax
    hue = 270.0 * (1 - max(0, min(value, vmax)) / vmax) / 360.0
    r, g, b = colorsys.hsv_to_rgb(hue, 0.4, 0.8)
