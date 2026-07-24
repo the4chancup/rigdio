@@ -10,7 +10,7 @@ If you're interested in building Rigdio/RigDJ yourself, here's some info that'll
 
 ### Requirements
 * [Python 3.13](https://github.com/adang1345/PythonVista) - Programming language required to run and build the code. You must use the Windows 7-compatible Python 3.13 builds from PythonVista, not the official Python releases. The official Python 3.9+ releases dropped Windows 7 support, but PythonVista provides backported builds that work on Windows 7 while giving you access to modern Python features. Any 3.13.x version from PythonVista will do.
-* [libmpv (64-bit)](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/) - The mpv media library DLL required to play songs on Rigdio. Download the 64-bit `libmpv-2.dll` and place it in the project and release folders.
+* [libmpv (64-bit)](https://github.com/eko5624/mpv-win64/releases/tag/2024-04-29) - The mpv media library DLL required to play songs on Rigdio. You must use a Windows 7-compatible build — recent mpv builds from the official source require Windows 8.1+ or 10+. Download `git-libmpv.7z` from the [last Win7-compatible release](https://github.com/eko5624/mpv-win64/releases/tag/2024-04-29) (April 2024, mpv v0.38.0), extract `libmpv-2.dll` from it, and place it in the project and release folders.
 * [python-mpv](https://pypi.org/project/python-mpv/) - Python module used for utilising the mpv media library functions to play songs on Rigdio.
 * [PyYAML](https://pypi.org/project/PyYAML/) - Python module used for parsing the default settings used in Rigdio.
 * [pyinstaller](https://pypi.org/project/pyinstaller/) - Python module used for building the executable files.
