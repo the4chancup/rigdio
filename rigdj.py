@@ -2,6 +2,9 @@ from version import rigdj_version as version
 
 from io import StringIO
 
+import sys
+from os.path import abspath, join
+
 from tkinter import *
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
@@ -856,9 +859,23 @@ class Editor (Frame):
                print("List for player {} is empty, will be ignored.").format(player)
       uiConvert(players)
 
+def resource_path(relative_path):
+   """ Get absolute path to resource, works for dev and for PyInstaller """
+   try:
+      # PyInstaller creates a temp folder and stores path in _MEIPASS
+      base_path = sys._MEIPASS
+   except Exception:
+      base_path = abspath(".")
+   return join(base_path, relative_path)
+
 def main ():
    # tkinter master window
    mainWindow = Tk()
+   try:
+      datafile = resource_path("rigdj.ico")
+      mainWindow.iconbitmap(default=datafile)
+   except:
+      pass
    # change window palette to dark mode if enabled in config
    if settings.config["dark_mode_enabled"]:
       applyDarkMode(mainWindow)

@@ -62,7 +62,7 @@ pyinstaller -F --noconsole --icon=rigdio.ico --add-data "rigdio.ico;." rigdio.py
 
 And the command line to build the RigDJ executable is
 ```
-pyinstaller -F --noconsole rigdj.py
+pyinstaller -F --noconsole --icon=rigdj.ico --add-data "rigdj.ico;." rigdj.py
 ```
 
 ### Assembling a Release
