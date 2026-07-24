@@ -1,1 +1,1 @@
-pyinstaller -F --noconsole rigdj.py
+py -3.13 -m PyInstaller -F --noconsole rigdj.py
