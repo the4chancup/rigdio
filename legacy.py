@@ -49,11 +49,11 @@ def analyze_loudness(filepath, target_db):
       gain = target_db - mean_db
       needs_limiter = (max_db + gain) > 0.0
       if needs_limiter:
-         print("   File has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain with limiter.".format(
-            mean_db, max_db, target_db, gain))
+         print("   {} has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain with limiter.".format(
+            basename(fullpath), mean_db, max_db, target_db, gain))
       else:
-         print("   File has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain.".format(
-            mean_db, max_db, target_db, gain))
+         print("   {} has mean volume of {:.1f} dB and peak of {:.1f} dB, target is {:.1f} dB; applying {:.1f} dB gain.".format(
+            basename(fullpath), mean_db, max_db, target_db, gain))
       result = (gain, needs_limiter)
       _loudness_cache[fullpath] = result
       return result
