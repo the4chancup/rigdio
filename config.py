@@ -31,7 +31,8 @@ defaults = dict(
       stop='#f9fce0',
       kill='#2bb4ee',
       load='#e0fcea',
-      normalize='#eae0fc'
+      normalize='#eae0fc',
+      reset='#e0fcea'
    ),
    darkColours=dict(
       bg='#1e1e1e',
@@ -42,7 +43,8 @@ defaults = dict(
       stop='#4a4e2a',
       kill='#377590',
       load='#2a4e3a',
-      normalize='#3a2f5f'
+      normalize='#3a2f5f',
+      reset='#2a4e3a'
    ),
    gameMinute=6.67,
    level=dict(

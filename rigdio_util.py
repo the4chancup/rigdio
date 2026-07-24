@@ -19,6 +19,16 @@ def volumeColor(value, vmax=200):
    r, g, b = colorsys.hsv_to_rgb(hue, 0.4, 0.8)
    return '#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255))
 
+def sliderToDb(value):
+   value = int(value)
+   if value <= 0:
+      return "Mute"
+   if value < 100:
+      return "{:+.0f}".format(-20 * (1 - value / 100))
+   elif value == 100:
+      return "0"
+   return "{:+.0f}".format(20 * (value - 100) / 100)
+
 def main():
    print(timeToSeconds("1:30"))
    print(timeToSeconds("0:40"))

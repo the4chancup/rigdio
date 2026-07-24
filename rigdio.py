@@ -14,7 +14,7 @@ from gamestate import GameState
 from songgui import *
 from version import rigdio_version as version
 from rigdj_util import setMaxWidth
-from rigdio_util import volumeColor
+from rigdio_util import volumeColor, sliderToDb
 from event import EventController
 import chantswindow as cWin
 import legacy
@@ -68,11 +68,11 @@ class Rigdio (Frame):
       # file menu
       homeButtons = Frame(self)
       Button(homeButtons, text="Load Home Team", command=self.loadFile, bg=self.colours["home"]).pack(fill=X)
-      Button(homeButtons, text="Reset", command=self.resetTeam, bg=self.colours["stop"]).pack()
+      Button(homeButtons, text="Reset", command=self.resetTeam, bg=self.colours["reset"]).pack()
       homeButtons.grid(row=0, column=0)
       awayButtons = Frame(self)
       Button(awayButtons, text="Load Away Team", command=lambda: self.loadFile(False), bg=self.colours["away"]).pack(fill=X)
-      Button(awayButtons, text="Reset", command=lambda: self.resetTeam(False), bg=self.colours["stop"]).pack()
+      Button(awayButtons, text="Reset", command=lambda: self.resetTeam(False), bg=self.colours["reset"]).pack()
       awayButtons.grid(row=0, column=2)
       # score widget
       self.scoreWidget = ScoreWidget(self, self.game)
@@ -88,7 +88,7 @@ class Rigdio (Frame):
       # events
       self.events = EventController()
       # undo (temporary)
-      Button(self, text="Undo Last Goal", command=self.game.undoLast).grid(row=3, column=1)
+      Button(self, text="Undo Last Goal", command=self.game.undoLast, bg=self.colours["reset"]).grid(row=3, column=1)
 
    def initGameTypeMenu (self):
       gameTypeMenu = Frame(self)
@@ -115,18 +115,24 @@ class Rigdio (Frame):
       Label(self.middleStuff, text=None).grid(columnspan=2)
       # universal playback speed slider
       Label(self.middleStuff, text="Playback Speed").grid(columnspan=2)
-      self.playbackSpeedMenu = Scale(self.middleStuff, from_=0.25, to=4.00, orient=HORIZONTAL, command=NONE, resolution=0.25, showvalue=1, digits=3)
+      self.playbackSpeedLabel = Label(self.middleStuff, text="1.00x")
+      self.playbackSpeedLabel.grid(columnspan=2)
+      self.playbackSpeedMenu = Scale(self.middleStuff, from_=0.25, to=4.00, orient=HORIZONTAL, command=self._playbackSpeedCommand, resolution=0.25, showvalue=0, digits=3)
       self.playbackSpeedMenu.set(1.00)
       self.playbackSpeedMenu.grid(columnspan=2)
+      Label(self.middleStuff, text=None).grid(columnspan=2)
       # master volume slider (only shown when normalize_volume is enabled)
       if settings.config["normalize_volume"]:
          Label(self.middleStuff, text="Master Volume").grid(columnspan=2)
+         self.masterVolumeLabel = Label(self.middleStuff, text="+0 dB")
+         self.masterVolumeLabel.grid(columnspan=2)
          self.masterVolume = Scale(self.middleStuff, from_=0, to=200, orient=HORIZONTAL, command=self.adjustMasterVolume, showvalue=0, troughcolor='#c8c8c8', bd=0, highlightthickness=0)
          self.masterVolume.set(100)
          self.masterVolume.configure(bg=volumeColor(100), activebackground=volumeColor(100))
          self.masterVolume.grid(columnspan=2)
       else:
          self.masterVolume = None
+         self.masterVolumeLabel = None
       # creates chants window and manager
       self.chantswindow = None
       self.chantsManager = cWin.ChantsManager(self.chantswindow, self)
@@ -140,9 +146,9 @@ class Rigdio (Frame):
       self.stopEarlyButton.grid(columnspan=2)
       # random chant buttons accessible from the main window
       self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, None, "Random", True, True)
-      self.randomHome.playButton.grid(row=10, column=0)
+      self.randomHome.playButton.grid(row=13, column=0)
       self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, None, "Random", False, True)
-      self.randomAway.playButton.grid(row=10, column=1)
+      self.randomAway.playButton.grid(row=13, column=1)
       return self.middleStuff
 
    def goNuclear(self):
@@ -165,11 +171,17 @@ class Rigdio (Frame):
             self.away.stopNuclear()
          self.nuke = False
 
+   def _playbackSpeedCommand (self, value):
+      self.playbackSpeedLabel.configure(text="{:.2f}x".format(float(value)))
+
    # used to disable the use of the playback speed slider when a song is playing, to make it obvious what the current playback speed is
    def disablePlaybackSpeedSlider (self, disable):
       if self.playbackSpeedMenu is not None:
          self.playbackSpeedMenu["state"] = DISABLED if disable else NORMAL
          self.playbackSpeedMenu["fg"] = 'grey' if disable else self.colours["fg"]
+         if disable:
+            # sync label to the slider's current position
+            self.playbackSpeedLabel.configure(text="{:.2f}x".format(self.playbackSpeedMenu.get()))
 
    # master volume control — adjusts volume on all loaded songs and chants
    def adjustMasterVolume (self, value):
@@ -182,20 +194,26 @@ class Rigdio (Frame):
                button.clists.adjustVolume(value)
       # adjust all chants
       self.chantsManager.adjustManagerVolume(value)
-      # update slider color
+      # update slider color and dB label
       if self.masterVolume is not None:
          color = volumeColor(value)
          self.masterVolume.configure(bg=color, activebackground=color)
+         vol = sliderToDb(value)
+         if vol == "Mute":
+            text = vol
+         else:
+            text = f"{vol} dB"
+         self.masterVolumeLabel.configure(text=text)
 
    def replaceChantButton (self, chantsList, home):
       if home:
          self.randomHome.playButton.destroy()
          self.randomHome = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", True, True)
-         self.randomHome.playButton.grid(row=10, column=0)
+         self.randomHome.playButton.grid(row=13, column=0)
       else:
          self.randomAway.playButton.destroy()
          self.randomAway = cWin.ChantsButton(self.middleStuff, self.chantsManager, chantsList, "Random", False, True)
-         self.randomAway.playButton.grid(row=10, column=1)
+         self.randomAway.playButton.grid(row=13, column=1)
 
    # open and close the chants window
    def chant_window (self):
