@@ -403,7 +403,7 @@ class Rigdio (Frame):
          return
       confirm = messagebox.askyesno("Reset Team",
          "Reset everything the {} team is currently using? This will stop their music, clear their chants and events, and reset their score.".format("home" if home else "away"),
-         icon='warning')
+         icon='question')
       if not confirm:
          return
       # stop any active chant from this team
