@@ -87,8 +87,10 @@ class Rigdio (Frame):
       self.nuke = False
       # events
       self.events = EventController()
+      # blank space
+      Label(self, text=None).grid(row=3, column=1)
       # undo (temporary)
-      Button(self, text="Undo Last Goal", command=self.game.undoLast, bg=self.colours["reset"]).grid(row=3, column=1)
+      Button(self, text="Undo Last Goal", command=self.game.undoLast, bg=self.colours["reset"]).grid(row=4, column=1)
 
    def initGameTypeMenu (self):
       gameTypeMenu = Frame(self)
