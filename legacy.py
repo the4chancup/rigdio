@@ -32,7 +32,7 @@ def analyze_loudness(filepath, target_db):
       if os.name == "nt":
          kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
       result = subprocess.run(
-         ["ffmpeg", "-i", fullpath, "-af", "volumedetect", "-f", "null", "-"],
+         ["ffmpeg", "-vn", "-i", fullpath, "-af", "volumedetect", "-f", "null", "-"],
          **kwargs
       )
       stderr = result.stderr
