@@ -395,6 +395,9 @@ class Rigdio (Frame):
          if self.events is not None:
             self.events.setAway(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
+      self.scoreWidget.updateLabels()
+      self.game.clear()
+      self.scoreWidget.updateScore()
 
    def resetTeam (self, home = True):
       team = self.home if home else self.away
@@ -439,9 +442,6 @@ class Rigdio (Frame):
          else:
             messagebox.showerror("Error","File type {} not supported.".format(extension))
             return
-         self.scoreWidget.updateLabels()
-         self.game.clear()
-         self.scoreWidget.updateScore()
       else:
          messagebox.showerror("Error","File {} not found.".format(f))
 
