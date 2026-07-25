@@ -264,17 +264,12 @@ class Rigdio (Frame):
 
       def progress_callback(completed, total):
          if completed == -2:
-            # set phase 2 total (song count from pre-pass)
+            # set song count from pre-pass
             state["songs_total"] = total
          elif completed == -1:
-            # phase 2: a song was loaded
+            # a song was loaded
             state["phase"] = 2
             state["songs_loaded"] += 1
-         else:
-            # phase 1: loudness analysis
-            state["phase"] = 1
-            state["completed"] = completed
-            state["total"] = total
 
       def worker():
          try:
@@ -304,14 +299,7 @@ class Rigdio (Frame):
             return
          # update progress UI
          loadBar.delete("all")
-         if state["phase"] == 1 and state["total"] > 0:
-            fillW = int(barWidth * state["completed"] / state["total"])
-            loadBar.create_rectangle(0, 0, fillW, barHeight, fill='#e8c800', outline='')
-            loadStatus["text"] = "Analyzing loudness... {}/{}".format(state["completed"], state["total"])
-         elif state["phase"] == 2:
-            # yellow stays full bar; green overlaps from start based on its own progress
-            if state["total"] > 0:
-               loadBar.create_rectangle(0, 0, barWidth, barHeight, fill='#e8c800', outline='')
+         if state["phase"] == 2:
             if state["songs_total"] > 0:
                greenW = int(barWidth * state["songs_loaded"] / state["songs_total"])
                loadBar.create_rectangle(0, 0, greenW, barHeight, fill='#22aa22', outline='')

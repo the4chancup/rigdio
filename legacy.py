@@ -8,7 +8,6 @@ import random
 import time
 import subprocess
 import re
-from concurrent.futures import ThreadPoolExecutor
 from config import settings
 
 # Cache of playback positions (in ms) keyed by absolute file path.
@@ -18,7 +17,7 @@ from config import settings
 _position_cache = {}
 
 # Cache of loudness analysis results keyed by absolute file path.
-# Populated by preanalyze_loudness so that loadsong doesn't re-run ffmpeg.
+# Populated lazily by analyze_loudness when a song is played.
 _loudness_cache = {}
 
 def analyze_loudness(filepath, target_db):
@@ -63,27 +62,6 @@ def analyze_loudness(filepath, target_db):
    except Exception as e:
       print("   Error analyzing loudness for {}: {}".format(fullpath, e))
       return None, False
-
-def preanalyze_loudness(filepaths, target_db, progress_callback=None):
-   """Run analyze_loudness for all file paths in parallel, populating the cache.
-   Call this before creating ConditionPlayers to avoid sequential ffmpeg calls.
-   If progress_callback is provided, it is called as (completed, total) after each file."""
-   unique = set(abspath(f) for f in filepaths if isfile(abspath(f)))
-   to_analyze = [f for f in unique if f not in _loudness_cache]
-   total = len(to_analyze)
-   if not to_analyze:
-      if progress_callback:
-         progress_callback(0, 0)
-      return
-   print("Pre-analyzing loudness for {} file(s) in parallel...".format(total))
-   completed = 0
-   if progress_callback:
-      progress_callback(0, total)
-   with ThreadPoolExecutor(max_workers=min(8, total)) as executor:
-      for _ in executor.map(lambda f: analyze_loudness(f, target_db), to_analyze):
-         completed += 1
-         if progress_callback:
-            progress_callback(completed, total)
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):
@@ -251,17 +229,6 @@ class ConditionPlayer (ConditionList):
       # vid=False prevents video tracks; pause=True keeps file paused until play()
       # keep_open=True prevents idle mode after EOF (matches ended state behavior)
       player = mpv.MPV(vid=False, pause=True, keep_open=True, volume_max=220)
-      # normalize volume if enabled in config
-      if settings.config["normalize_volume"]:
-         gain, needs_limiter = analyze_loudness(fullpath, settings.level["target"])
-         if gain is not None:
-            if needs_limiter:
-               player.af = "volume={:.1f}dB,alimiter=limit=0.95".format(gain)
-            else:
-               player.af = "volume={:.1f}dB".format(gain)
-            self.normalize_gain = gain
-            print("   Normalized {} with {:.1f} dB gain{}".format(
-               basename(fullpath), gain, " + limiter" if needs_limiter else ""))
       player.loadfile(fullpath)
       return player
 
@@ -279,6 +246,16 @@ class ConditionPlayer (ConditionList):
          thread = self.fade
          self.fade = None
          thread.join()
+      # apply normalization gain as audio filter before playback (lazy — only when actually played)
+      if settings.config["normalize_volume"] and isinstance(self.song, mpv.MPV):
+         fullpath = abspath(self.songname)
+         gain, needs_limiter = analyze_loudness(fullpath, settings.level["target"])
+         if gain is not None:
+            if needs_limiter:
+               self.song.af = "volume={:.1f}dB,alimiter=limit=0.95".format(gain)
+            else:
+               self.song.af = "volume={:.1f}dB".format(gain)
+            self.normalize_gain = gain
       self.song.pause = False
       self.song.volume = self._toMpvVolume(self.maxVolume)
       # restore saved playback position for sync-enabled goalhorns

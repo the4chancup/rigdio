@@ -1,6 +1,6 @@
 from os import listdir
 from os.path import basename, splitext, isfile
-from legacy import ConditionList, ConditionPlayer, preanalyze_loudness
+from legacy import ConditionList, ConditionPlayer
 from config import settings
 
 # reserved names
@@ -46,7 +46,7 @@ def parse (filename, load = True, home = True, progress_callback=None):
       lines = lines[1:]
 
    # iterate across lines
-   # pre-pass: collect all song filenames (for loudness analysis and/or song count)
+   # pre-pass: collect song count for progress UI
    if load:
       pre_files = []
       for line in lines:
@@ -64,8 +64,6 @@ def parse (filename, load = True, home = True, progress_callback=None):
       song_count = len(pre_files)
       if progress_callback:
          progress_callback(-2, song_count)
-      if settings.config["normalize_volume"]:
-         preanalyze_loudness(pre_files, settings.level["target"], progress_callback)
    # main pass: create ConditionPlayer objects
    for line in lines:
       # ignore comments
