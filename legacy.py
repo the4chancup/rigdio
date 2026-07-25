@@ -8,6 +8,8 @@ import random
 import time
 import subprocess
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from config import settings
 
 # Cache of playback positions (in ms) keyed by absolute file path.
@@ -17,15 +19,36 @@ from config import settings
 _position_cache = {}
 
 # Cache of loudness analysis results keyed by absolute file path.
-# Populated lazily by analyze_loudness when a song is played.
+# Populated lazily by analyze_loudness when a song is played,
+# or proactively by start_background_analysis after loading.
 _loudness_cache = {}
+
+# Track files currently being analyzed to avoid duplicate work.
+_loudness_pending = set()
+_loudness_pending_lock = threading.Lock()
 
 def analyze_loudness(filepath, target_db):
    """Analyze audio loudness using ffmpeg volumedetect and calculate gain needed
    to reach target_db. Returns (gain_db, needs_limiter) or (None, False) on failure.
-   A limiter is needed when the full gain would cause peak clipping."""
+   A limiter is needed when the full gain would cause peak clipping.
+   Thread-safe: uses a lock to prevent duplicate ffmpeg calls for the same file."""
    fullpath = abspath(filepath)
+   # fast path: already cached
    if fullpath in _loudness_cache:
+      return _loudness_cache[fullpath]
+   # claim this file or wait for another thread to finish it
+   with _loudness_pending_lock:
+      if fullpath in _loudness_cache:
+         return _loudness_cache[fullpath]
+      if fullpath in _loudness_pending:
+         pending = True
+      else:
+         _loudness_pending.add(fullpath)
+         pending = False
+   if pending:
+      # another thread is analyzing this file; wait for it
+      while fullpath not in _loudness_cache:
+         time.sleep(0.01)
       return _loudness_cache[fullpath]
    try:
       kwargs = dict(capture_output=True, text=True, errors="replace", timeout=30)
@@ -58,10 +81,30 @@ def analyze_loudness(filepath, target_db):
       return result
    except FileNotFoundError:
       print("   ffmpeg not found, skipping normalization for {}".format(fullpath))
+      _loudness_cache[fullpath] = (None, False)
       return None, False
    except Exception as e:
       print("   Error analyzing loudness for {}: {}".format(fullpath, e))
+      _loudness_cache[fullpath] = (None, False)
       return None, False
+   finally:
+      with _loudness_pending_lock:
+         _loudness_pending.discard(fullpath)
+
+def start_background_analysis(filepaths, target_db):
+   """Start analyzing loudness for all files in a background thread pool.
+   Non-blocking: returns immediately. Results populate _loudness_cache.
+   If a file is played before its analysis completes, play() will wait for it."""
+   unique = set(abspath(f) for f in filepaths if isfile(abspath(f)))
+   to_analyze = [f for f in unique if f not in _loudness_cache and f not in _loudness_pending]
+   if not to_analyze:
+      return
+   print("Starting background loudness analysis for {} file(s)...".format(len(to_analyze)))
+   def worker():
+      with ThreadPoolExecutor(max_workers=min(4, len(to_analyze))) as executor:
+         list(executor.map(lambda f: analyze_loudness(f, target_db), to_analyze))
+   thread = threading.Thread(target=worker, daemon=True)
+   thread.start()
 
 class ConditionList:
    def __init__(self, pname = "NOPLAYER", tname = "NOTEAM", data = [], songname = "New Song", home = True, runInstructions = True):

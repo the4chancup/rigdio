@@ -1,6 +1,6 @@
 from os import listdir
 from os.path import basename, splitext, isfile
-from legacy import ConditionList, ConditionPlayer
+from legacy import ConditionList, ConditionPlayer, start_background_analysis
 from config import settings
 
 # reserved names
@@ -64,6 +64,8 @@ def parse (filename, load = True, home = True, progress_callback=None):
       song_count = len(pre_files)
       if progress_callback:
          progress_callback(-2, song_count)
+      if settings.config["normalize_volume"]:
+         start_background_analysis(pre_files, settings.level["target"])
    # main pass: create ConditionPlayer objects
    for line in lines:
       # ignore comments
