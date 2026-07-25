@@ -141,20 +141,27 @@ def parse (filename, load = True, home = True, progress_callback=None):
    return players, tname, events
 
 def songCheck (folder, name):
-   # when normalize_volume is enabled, skip _normalized files — we normalize at playback
-   # to a consistent baseline, so pre-normalized files (possibly at different targets) are ignored
+   normalized = splitext(name)[0] + "_normalized"
    if not settings.config["normalize_volume"]:
-      normalized = splitext(name)[0] + "_normalized"
+      # when normalize_volume is disabled, prefer _normalized files if they exist
       for file in listdir(folder):
          if splitext(file)[0].lower() == normalized.lower():
             print("Normalized version of " + folder+name + " found")
             return folder+file
-   # check for regular song file after
+   # check for regular song file
    # required due to linux's file system being case-sensitive
    if not isfile(folder+name):
       for file in listdir(folder):
          if file.lower() == name.lower():
             return folder+file
+   else:
+      return folder+name
+   # no regular file found; fall back to _normalized version if it exists
+   # (will be renormalized at playback to the configured target level)
+   for file in listdir(folder):
+      if splitext(file)[0].lower() == normalized.lower():
+         print("Regular file not found, using normalized version of " + folder+name)
+         return folder+file
    return folder+name
 
 def main ():
