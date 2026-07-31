@@ -25,8 +25,6 @@ def sliderToDb(value):
       return "Mute"
    if value < 100:
       return "{:+.0f}".format(-20 * (1 - value / 100))
-   elif value == 100:
-      return "0"
    return "{:+.0f}".format(20 * (value - 100) / 100)
 
 def main():
