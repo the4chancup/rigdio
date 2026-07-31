@@ -1,13 +1,33 @@
-23/07/26
+31/07/26 - Version v2.1.0 & RigDJ v1.15.0
 - Reworked volume sliders to use perceptual dB scaling instead of raw values
-  Slider now feels linear to the ear instead of dropping off too quickly at low values
-- Volume sliders now go up to 200, allowing boosting quiet audio files up to +20 dB
-- Default volume changed from 80 to 100 (0 dB unity gain)
-- Volume slider knob now changes color from purple to red based on volume level
+  Sliders now feel more linear to the ear instead of dropping off too quickly at low values
+- Implemented proper volume boosting
+  Instead of the previous 0~100% volume bar which started at 80%, you now get a
+  -20db ~ +20db bar which starts at 0dB (corresponding to 100% on the old one)
+  Volume slider knobs now change color from purple to red based on volume level
+- Implemented automatic volume leveling
+  When you load a music export, it analyzes every song's volume and applies some gain so they're all
+  at the same level, which means no more quiet goalhorns and chants and no more need to fiddle with
+  a different slider for each goalhorn
+  Enabled by default, and when enabled you get a single Master Volume slider
+  Sound files with the "_normalized" prefix are now ignored for consistency in volume across teams
+  Riglevel is no longer included, this feature makes it redundant
 - Added "Reset" buttons below the Load Team buttons
-  Stops all music, resets chants, events, and score for that team so they can be loaded fresh
-  Useful when a team is suddenly scheduled for another match
-  Reset is done in-place without reloading the physical music files for speed
+  They stop all music and reset chants, events, and score for each team so they can be loaded fresh
+  Useful when a team is scheduled for the following match
+  Reset is done in-place without reloading the physical music files, for extra speed
+- Added "louder" instruction for per-track volume boosting
+  Mark any track with ;louder in the .4ccm file (also available in RigDJ's condition editor)
+  When a loaded team has at least one louder-marked track and normalization is enabled, a Volume
+  Boost slider appears for that team (-5 dB to +15 dB, default +5 dB), this boost is added on top of
+  the master volume for any tracks marked as louder
+  The "Volume Boost" label blinks while a boosted track is playing
+- Removed "end loop" instruction
+  Goalhorns already loop by default, making this instruction redundant
+  It also caused a bug where closing rigdio while a goalhorn with ;end loop was playing would leave
+  the process running in the background with audio still playing
+  Existing 4ccm files containing ;end loop will load fine, the instruction is silently ignored
+- Reduced the package size by more than half by preparing a minified version of the ffmpeg exe
 
 19/07/26 - Version v2.0.0
 - Migrated the media library to use MPV instead of VLC, solving several volume issues
@@ -15,11 +35,11 @@
 - Made chant random decay weight configurable (chant_random_decay_weight in config.yml)
   Lower it to make repeats less likely, set it to 0.0 to prevent repeats completely
 - Excluded warcry goalhorns from position caching to prevent them from playing only once
-- Make the randomise condition usable on warcry goalhorns and anthems
+- Made the randomise condition usable on warcry goalhorns and anthems
   This allows you to use multiple random warcries on the same player or on the victory anthem
 
 
-16/07/26 - Version v1.21.0
+16/07/26 - Version v1.21.0 & RigDJ v1.14.0
 - Added "advance" instruction: when a song ends, plays the next valid goalhorn instead of looping or
   stopping
 - Added "sync" flag in .4ccm files to opt out of shared playback position (which stays on by
