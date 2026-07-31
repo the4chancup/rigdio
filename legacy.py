@@ -234,6 +234,8 @@ class ConditionPlayer (ConditionList):
       self.instructionsEnd = []
       self.maxVolume = 100
       self.normalize_gain = None
+      self.louder = False
+      self.boostValue = 0
       # repetition settings; may be changed by instructions
       norepeat = set(["victory","chant"])
       self.repeat = (pname not in norepeat)
@@ -294,7 +296,10 @@ class ConditionPlayer (ConditionList):
          fullpath = abspath(self.songname)
          gain, needs_limiter = analyze_loudness(fullpath, settings.level["target"])
          if gain is not None:
-            if needs_limiter:
+            if self.louder:
+               total_gain = gain + self.boostValue
+               self.song.af = "volume={:.1f}dB,alimiter=limit=0.95".format(total_gain)
+            elif needs_limiter:
                self.song.af = "volume={:.1f}dB,alimiter=limit=0.95".format(gain)
             else:
                self.song.af = "volume={:.1f}dB".format(gain)
@@ -505,6 +510,11 @@ class PlayerManager:
       self.firstTime = self.song.firstPlay
       # play the song
       self.song.play()
+      # start blinking if the playing song is louder-marked
+      if hasattr(self.song, 'louder') and self.song.louder:
+         frame = self.master.frame
+         if hasattr(frame, 'hasLouder') and frame.hasLouder:
+            frame.startBlinking()
       # start the end checker instruction thread
       if len(self.song.instructionsEnd) > 0 or (self.song.repeat and self.song.manualLoop):
          self.endChecker = threading.Thread(target=self.checkEnd)
@@ -531,6 +541,10 @@ class PlayerManager:
 
    def pauseSong (self):
       if self.song is not None:
+         # stop blinking when a louder-marked song is paused
+         frame = self.master.frame
+         if hasattr(frame, 'hasLouder') and frame.hasLouder:
+            frame.stopBlinking()
          # clear end checker thread to prevent continuous running while paused
          self.endChecker = None
          # log pause

@@ -687,6 +687,27 @@ class UnrandomInstruction (Instruction):
    def tokens(self):
       return []
 
+class LouderInstruction (Instruction):
+   desc = """Marks this track for volume boosting. When normalization is enabled, a Volume Boost slider will appear for the team, and its value will be added to the master volume for this track."""
+
+   def __init__ (self, tokens, **kwargs):
+      pass
+
+   def append (self, player):
+      player.instructionsStart.append(self)
+
+   def prep (self, player):
+      player.louder = True
+
+   def run (self, player):
+      pass
+
+   def type (self):
+      return "louder"
+
+   def tokens(self):
+      return []
+
 class AdvanceInstruction (Instruction):
    desc = """When this song ends, play the next valid goalhorn instead of looping or stopping."""
 
@@ -763,6 +784,7 @@ conditions = {
    "warcry" : WarcryInstruction,
    "unrandom" : UnrandomInstruction,
    "advance" : AdvanceInstruction,
+   "louder" : LouderInstruction,
    "event" : EventInstruction # deprecated, for .4ccm use
 }
 
@@ -774,7 +796,8 @@ instructions = {
    "end" : EndInstruction,
    "warcry" : WarcryInstruction,
    "unrandom" : UnrandomInstruction,
-   "advance" : AdvanceInstruction
+   "advance" : AdvanceInstruction,
+   "louder" : LouderInstruction
 }
 
 def processTokens (tokenStr):

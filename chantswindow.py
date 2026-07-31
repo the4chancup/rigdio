@@ -179,6 +179,11 @@ class ChantsButton:
          self.chant.play()
          print("Chant now playing.")
          print("Chant Timer: {} seconds.".format(self.fadeOutTime))
+         # start blinking if the chant is louder-marked
+         if hasattr(self.chant, 'louder') and self.chant.louder:
+            team = self.chantsManager.mainWin.home if self.home else self.chantsManager.mainWin.away
+            if team is not None and hasattr(team, 'hasLouder') and team.hasLouder:
+               team.startBlinking()
 
          # while greying out the timer stuff and starting the chant end checker thread
          self.chantsManager.disableChantTimer(True, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
@@ -198,6 +203,8 @@ class ChantsButton:
             if self.frame.winfo_exists():
                self.playButton.configure(relief=RAISED)
                self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
+            # stop blinking if the chant was louder-marked
+            self._stopChantBlink()
             # disables the fade, mark active chant as none, and kill the thread
             self.chant.fade = None
             self.chantsManager.activeChant = None
@@ -223,6 +230,13 @@ class ChantsButton:
          if self.frame.winfo_exists():
             self.playButton.configure(relief=RAISED)
             self.chantsManager.disableChantTimer(False, self.chantsManager.window.chantsFrame if self.chantsManager.window is not None else None)
+         self._stopChantBlink()
+
+   def _stopChantBlink (self):
+      if hasattr(self.chant, 'louder') and self.chant.louder:
+         team = self.chantsManager.mainWin.home if self.home else self.chantsManager.mainWin.away
+         if team is not None and hasattr(team, 'hasLouder') and team.hasLouder:
+            team.stopBlinking()
 
    def insert (self, row):
       self.playButton.grid(row=row, column=0 if self.home else 1)
@@ -336,6 +350,12 @@ class ChantsManager:
       for chant in self.allChants:
          chant.adjustVolume(value)
       self.lastVolume = int(value)
+
+   def applyBoost (self, boostDb, home):
+      chants = self.homeChants if home else self.awayChants
+      for chant in chants:
+         if hasattr(chant, 'louder') and chant.louder:
+            chant.boostValue = boostDb
 
    def adjustTimer (self, value):
       # shoves all of the chant buttons (including the random ones) into a single list

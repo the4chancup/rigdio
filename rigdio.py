@@ -357,6 +357,9 @@ class Rigdio (Frame):
             else:
                print("No chants for team /{}/.".format(tname))
                self.chantsManager.setHome(parsed=None)
+            # apply volume boost to chants if the home team has louder-marked tracks
+            if self.home is not None and hasattr(self.home, 'hasLouder') and self.home.hasLouder:
+               self.chantsManager.applyBoost(self.home.boostValue, True)
          if self.events is not None:
             self.events.setHome(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
@@ -382,6 +385,9 @@ class Rigdio (Frame):
             else:
                print("No chants for team /{}/.".format(tname))
                self.chantsManager.setAway(parsed=None)
+            # apply volume boost to chants if the away team has louder-marked tracks
+            if self.away is not None and hasattr(self.away, 'hasLouder') and self.away.hasLouder:
+               self.chantsManager.applyBoost(self.away.boostValue, False)
          if self.events is not None:
             self.events.setAway(parsed=events)
             print("Prepared events for team /{}/.".format(tname))
@@ -410,8 +416,12 @@ class Rigdio (Frame):
       chants = self.chantsManager.homeChants if home else self.chantsManager.awayChants
       if home:
          self.chantsManager.setHome(parsed=chants)
+         if hasattr(team, 'hasLouder') and team.hasLouder:
+            self.chantsManager.applyBoost(team.boostValue, True)
       else:
          self.chantsManager.setAway(parsed=chants)
+         if hasattr(team, 'hasLouder') and team.hasLouder:
+            self.chantsManager.applyBoost(team.boostValue, False)
       # reset event last-played times
       self.events.reset(home)
       # reset the score for this team
