@@ -477,14 +477,14 @@ class EndInstructionEditor (ConditionEditor):
       super().__init__(master,cond,EndInstruction)
 
    def default (self):
-      return ["loop"]
+      return ["stop"]
 
    def build (self, tokens):
       self.fields.append(StringVar())
       if tokens[0] in EndInstruction.types:
          self.fields[0].set(tokens[0])
       else:
-         self.fields[0].set("loop")
+         self.fields[0].set("stop")
       selector = OptionMenu(self, self.fields[0], *EndInstruction.types)
       setMaxWidth(EndInstruction.types, selector)
       selector.pack()

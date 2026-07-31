@@ -616,19 +616,32 @@ class PauseInstruction (Instruction):
       return [self.command]
 
 class EndInstruction (Instruction):
-   desc = """Specify action taken when goalhorn reaches the end."""
-   types = ["loop", "stop"]
+   desc = (
+      "Specify action taken when goalhorn reaches the end.\n"
+      "Goalhorns loop by default."
+   )
+   types = ["stop"]
 
    def __init__ (self, tokens, **kwargs):
+      if tokens[0] == "loop":
+         # ;end loop is a no-op: goalhorns loop by default, and this
+         # instruction previously spawned a useless endChecker thread
+         # that prevented rigdio from closing cleanly.
+         # Silently ignore it for backwards compatibility with old 4ccm files.
+         print("Ignoring ';end loop' instruction (goalhorns loop by default).")
+         self.command = "loop"
+         return
       if tokens[0] not in EndInstruction.types:
          raise ValueError("Unrecognised end type (allowed values: {}).".format(", ".join(EndInstruction.types)))
       self.command = tokens[0]
 
    def append (self, player):
+      if self.command != "stop":
+         return
       player.instructionsEnd.append(self)
 
    def prep (self, player):
-      if self.command != "loop":
+      if self.command == "stop":
          player.repeat = False
 
    def run (self, playerManager):
